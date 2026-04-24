@@ -67,3 +67,53 @@ export const QUESTIONS = [
   { question: "Quel est le plus grand animal marin ?", options: ["Requin","Baleine bleue","Dauphin","Orque"], answer: "Baleine bleue", reward: 100 },
   { question: "Quel est le continent le plus chaud ?", options: ["Europe","Afrique","Asie","Océanie"], answer: "Afrique", reward: 100 }
 ];
+//nouvelle questions 
+// 👉 NOUVELLES QUESTIONS (suite)
+
+{ question: "Quel est le plus grand fleuve d’Amérique du Sud ?", options: ["Nil","Amazone","Mississippi","Danube"], answer: "Amazone", reward: 100 },
+{ question: "Quelle est la capitale de l’Allemagne ?", options: ["Munich","Berlin","Hambourg","Francfort"], answer: "Berlin", reward: 100 },
+{ question: "Quel est le symbole du sodium ?", options: ["So","Na","Sn","S"], answer: "Na", reward: 100 },
+{ question: "Combien de dents a un adulte ?", options: ["28","30","32","34"], answer: "32", reward: 100 },
+{ question: "Quel est le plus grand organe interne ?", options: ["Cœur","Foie","Poumon","Rein"], answer: "Foie", reward: 100 },
+
+{ question: "Qui a inventé le téléphone ?", options: ["Edison","Bell","Tesla","Newton"], answer: "Bell", reward: 100 },
+{ question: "Quelle est la capitale de la Chine ?", options: ["Shanghai","Pékin","Hong Kong","Canton"], answer: "Pékin", reward: 100 },
+{ question: "Quel est le plus grand oiseau ?", options: ["Aigle","Autruche","Pigeon","Corbeau"], answer: "Autruche", reward: 100 },
+{ question: "Quelle est la monnaie du Japon ?", options: ["Yuan","Won","Yen","Dollar"], answer: "Yen", reward: 100 },
+{ question: "Combien de couleurs dans l’arc-en-ciel ?", options: ["5","6","7","8"], answer: "7", reward: 100 },
+
+{ question: "Quel est le plus grand pays d’Afrique ?", options: ["Nigeria","Algérie","Égypte","Soudan"], answer: "Algérie", reward: 100 },
+{ question: "Quel est le plus petit continent ?", options: ["Europe","Australie","Antarctique","Amérique"], answer: "Australie", reward: 100 },
+{ question: "Quelle est la capitale du Maroc ?", options: ["Casablanca","Rabat","Marrakech","Fès"], answer: "Rabat", reward: 100 },
+{ question: "Quel est le gaz le plus abondant dans l’air ?", options: ["Oxygène","Azote","CO2","Hydrogène"], answer: "Azote", reward: 100 },
+{ question: "Quel est le plus grand reptile ?", options: ["Serpent","Crocodile","Lézard","Tortue"], answer: "Crocodile", reward: 100 },
+
+{ question: "Qui a écrit Roméo et Juliette ?", options: ["Hugo","Shakespeare","Molière","Voltaire"], answer: "Shakespeare", reward: 100 },
+{ question: "Quel est le plus grand désert chaud ?", options: ["Sahara","Gobi","Kalahari","Arabie"], answer: "Sahara", reward: 100 },
+{ question: "Quelle est la capitale de la Russie ?", options: ["Kiev","Moscou","Saint-Pétersbourg","Minsk"], answer: "Moscou", reward: 100 },
+{ question: "Quel est le plus grand félin ?", options: ["Lion","Tigre","Panthère","Guépard"], answer: "Tigre", reward: 100 },
+{ question: "Combien de planètes gazeuses ?", options: ["2","3","4","5"], answer: "4", reward: 100 },
+
+{ question: "Quel est le plus grand océan après le Pacifique ?", options: ["Indien","Atlantique","Arctique","Austral"], answer: "Atlantique", reward: 100 },
+{ question: "Quel est le symbole du carbone ?", options: ["C","Ca","Co","Cr"], answer: "C", reward: 100 },
+{ question: "Quelle est la capitale du Sénégal ?", options: ["Dakar","Thiès","Kaolack","Saint-Louis"], answer: "Dakar", reward: 100 },
+{ question: "Quel est le plus grand poisson ?", options: ["Requin blanc","Requin baleine","Thon","Espadon"], answer: "Requin baleine", reward: 100 },
+{ question: "Quel est le plus grand satellite naturel ?", options: ["Lune","Europe","Titan","Ganymède"], answer: "Ganymède", reward: 100 },
+
+{ question: "Quel est le pays de la pizza ?", options: ["France","Italie","Espagne","Grèce"], answer: "Italie", reward: 100 },
+{ question: "Quel est le plus grand lac d’Afrique ?", options: ["Victoria","Tchad","Tanganyika","Malawi"], answer: "Victoria", reward: 100 },
+{ question: "Quel est le symbole du potassium ?", options: ["P","K","Po","Pt"], answer: "K", reward: 100 },
+{ question: "Combien de joueurs dans une équipe de foot ?", options: ["9","10","11","12"], answer: "11", reward: 100 },
+{ question: "Quel est le plus grand pays d’Europe ?", options: ["France","Allemagne","Russie","Espagne"], answer: "Russie", reward: 100 },
+
+{ question: "Quel est le plus grand organe du corps humain ?", options: ["Cœur","Peau","Foie","Poumon"], answer: "Peau", reward: 100 },
+{ question: "Quel est le plus grand fleuve d’Europe ?", options: ["Danube","Volga","Seine","Rhin"], answer: "Volga", reward: 100 },
+{ question: "Quel est le symbole du cuivre ?", options: ["Cu","Co","Cr","C"], answer: "Cu", reward: 100 },
+{ question: "Quel est le plus grand pays d’Asie ?", options: ["Chine","Inde","Russie","Japon"], answer: "Russie", reward: 100 },
+{ question: "Quelle est la capitale de l’Argentine ?", options: ["Lima","Bogota","Buenos Aires","Santiago"], answer: "Buenos Aires", reward: 100 },
+
+{ question: "Quel est le plus grand animal volant ?", options: ["Aigle","Albatros","Condor","Vautour"], answer: "Albatros", reward: 100 },
+{ question: "Quel est le plus grand océan du monde ?", options: ["Atlantique","Indien","Pacifique","Arctique"], answer: "Pacifique", reward: 100 },
+{ question: "Quel est le symbole de l’argent ?", options: ["Ag","Au","Ar","An"], answer: "Ag", reward: 100 },
+{ question: "Quelle est la capitale de l’Inde ?", options: ["Mumbai","Delhi","New Delhi","Kolkata"], answer: "New Delhi", reward: 100 },
+{ question: "Quel est le plus grand mammifère terrestre ?", options: ["Éléphant","Girafe","Rhino","Bison"], answer: "Éléphant", reward: 100 }
