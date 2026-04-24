@@ -12,6 +12,16 @@ import {
   RewardedAdEventType,
 } from "react-native-google-mobile-ads";
 
+// 🔀 Mélange propre (Fisher-Yates)
+const shuffleArray = (array) => {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+};
+
 const interstitial = InterstitialAd.createForAdRequest(
   "ca-app-pub-5350081816144613/1045376590"
 );
@@ -29,14 +39,19 @@ export default function Quiz() {
   const [time, setTime] = useState(15);
   const [hearts, setHearts] = useState(5);
   const [gameOver, setGameOver] = useState(false);
+  const [shuffledOptions, setShuffledOptions] = useState([]);
 
   const current = QUESTIONS[index];
 
+  // 🔀 Shuffle options à chaque question
+  useEffect(() => {
+    setShuffledOptions(shuffleArray(current.options));
+  }, [index]);
+
   // 🔊 SOUND
   const playSound = async (type) => {
-    const sound = new Audio.Sound();
     try {
-      await sound.loadAsync(
+      const { sound } = await Audio.Sound.createAsync(
         type === "correct"
           ? require("../assets/sounds/correct.mp3")
           : require("../assets/sounds/wrong.mp3")
@@ -69,14 +84,14 @@ export default function Quiz() {
       setHearts(0);
       setGameOver(true);
     } else {
-      setHearts(hearts - 1);
+      setHearts((h) => h - 1);
       nextQuestion();
     }
   };
 
   const nextQuestion = () => {
     if (index + 1 < QUESTIONS.length) {
-      setIndex(index + 1);
+      setIndex((i) => i + 1);
       setSelected(null);
       setTime(15);
     } else {
@@ -85,11 +100,13 @@ export default function Quiz() {
   };
 
   const endGame = () => {
-    interstitial.show();
+    try {
+      interstitial.show();
+    } catch {}
     router.push({ pathname: "/results", params: { money } });
   };
 
-  const handleAnswer = async (option) => {
+  const handleAnswer = (option) => {
     if (selected) return;
 
     setSelected(option);
@@ -97,16 +114,15 @@ export default function Quiz() {
     setTimeout(async () => {
       if (option === current.answer) {
         await playSound("correct");
-
-        setMoney(money + current.reward);
+        setMoney((m) => m + current.reward);
         nextQuestion();
       } else {
         loseLife();
       }
-    }, 800);
+    }, 700);
   };
 
-  // 🎁 REWARDED (REVIVE)
+  // 🎁 REVIVE
   const revive = () => {
     rewarded.addAdEventListener(
       RewardedAdEventType.EARNED_REWARD,
@@ -120,25 +136,24 @@ export default function Quiz() {
     rewarded.show();
   };
 
-  // ❤️ UI Hearts
   const renderHearts = () => {
     return "❤️".repeat(hearts) + "🖤".repeat(5 - hearts);
   };
 
-  // 🎮 GAME OVER SCREEN
+  // 🎮 GAME OVER
   if (gameOver) {
     return (
       <View style={styles.container}>
         <Text style={styles.gameOver}>💔 Plus de vies</Text>
 
         <TouchableOpacity style={styles.rewardBtn} onPress={revive}>
-          <Text style={{ color: "white" }}>
-            🎁 Regarder une pub pour continuer
+          <Text style={styles.btnText}>
+            🎁 Continuer (pub)
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.quitBtn} onPress={endGame}>
-          <Text style={{ color: "white" }}>Quitter</Text>
+          <Text style={styles.btnText}>Quitter</Text>
         </TouchableOpacity>
       </View>
     );
@@ -146,35 +161,38 @@ export default function Quiz() {
 
   return (
     <View style={styles.container}>
-      {/* ❤️ HEARTS */}
       <Text style={styles.hearts}>{renderHearts()}</Text>
 
-      {/* 💰 MONEY */}
       <Text style={styles.money}>💰 ${money}</Text>
 
-      {/* ⏱ TIMER */}
       <Text style={styles.timer}>⏱ {time}s</Text>
 
-      {/* QUESTION */}
       <View style={styles.card}>
         <Text style={styles.question}>{current.question}</Text>
       </View>
 
-      {current.options.map((opt) => (
+      {shuffledOptions.map((opt) => (
         <TouchableOpacity
           key={opt}
           onPress={() => handleAnswer(opt)}
-          style={styles.option}
+          style={[
+            styles.option,
+            selected === opt &&
+              (opt === current.answer
+                ? styles.correct
+                : styles.wrong),
+          ]}
         >
           <Text style={styles.optionText}>{opt}</Text>
         </TouchableOpacity>
       ))}
 
-      {/* 📢 BANNER */}
-      <BannerAd
-        unitId="ca-app-pub-5350081816144613/9386901047"
-        size={BannerAdSize.BANNER}
-      />
+      <View style={{ marginTop: 10 }}>
+        <BannerAd
+          unitId="ca-app-pub-5350081816144613/9386901047"
+          size={BannerAdSize.BANNER}
+        />
+      </View>
     </View>
   );
 }
@@ -182,11 +200,7 @@ export default function Quiz() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#0A0F2C" },
 
-  hearts: {
-    fontSize: 24,
-    textAlign: "center",
-    marginBottom: 10,
-  },
+  hearts: { fontSize: 24, textAlign: "center", marginBottom: 10 },
 
   money: {
     color: "#FFD700",
@@ -225,6 +239,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
+  correct: {
+    backgroundColor: "green",
+  },
+
+  wrong: {
+    backgroundColor: "red",
+  },
+
   gameOver: {
     color: "white",
     fontSize: 24,
@@ -243,5 +265,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#EF4444",
     padding: 15,
     borderRadius: 20,
+  },
+
+  btnText: {
+    color: "white",
+    textAlign: "center",
+    fontWeight: "bold",
   },
 });
