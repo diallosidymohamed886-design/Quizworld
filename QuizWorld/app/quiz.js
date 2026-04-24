@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { QUESTIONS } from "../constants/questions";
 import { Audio } from "expo-av";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
   BannerAd,
@@ -12,7 +13,6 @@ import {
   RewardedAdEventType,
 } from "react-native-google-mobile-ads";
 
-// 🔀 Mélange propre (Fisher-Yates)
 const shuffleArray = (array) => {
   const arr = [...array];
   for (let i = arr.length - 1; i > 0; i--) {
@@ -43,12 +43,10 @@ export default function Quiz() {
 
   const current = QUESTIONS[index];
 
-  // 🔀 Shuffle options à chaque question
   useEffect(() => {
     setShuffledOptions(shuffleArray(current.options));
   }, [index]);
 
-  // 🔊 SOUND
   const playSound = async (type) => {
     try {
       const { sound } = await Audio.Sound.createAsync(
@@ -60,18 +58,15 @@ export default function Quiz() {
     } catch {}
   };
 
-  // ⏱ TIMER
   useEffect(() => {
     if (time === 0) {
       loseLife();
       return;
     }
-
     const timer = setTimeout(() => setTime(time - 1), 1000);
     return () => clearTimeout(timer);
   }, [time]);
 
-  // 💥 LOAD ADS
   useEffect(() => {
     interstitial.load();
     rewarded.load();
@@ -99,10 +94,25 @@ export default function Quiz() {
     }
   };
 
-  const endGame = () => {
+  const endGame = async () => {
     try {
       interstitial.show();
     } catch {}
+
+    try {
+      const best = await AsyncStorage.getItem("BEST_SCORE");
+      const games = await AsyncStorage.getItem("GAMES_PLAYED");
+
+      const newBest =
+        !best || money > parseInt(best) ? money : parseInt(best);
+
+      await AsyncStorage.setItem("BEST_SCORE", newBest.toString());
+      await AsyncStorage.setItem(
+        "GAMES_PLAYED",
+        ((games ? parseInt(games) : 0) + 1).toString()
+      );
+    } catch {}
+
     router.push({ pathname: "/results", params: { money } });
   };
 
@@ -122,7 +132,6 @@ export default function Quiz() {
     }, 700);
   };
 
-  // 🎁 REVIVE
   const revive = () => {
     rewarded.addAdEventListener(
       RewardedAdEventType.EARNED_REWARD,
@@ -136,20 +145,16 @@ export default function Quiz() {
     rewarded.show();
   };
 
-  const renderHearts = () => {
-    return "❤️".repeat(hearts) + "🖤".repeat(5 - hearts);
-  };
+  const renderHearts = () =>
+    "❤️".repeat(hearts) + "🖤".repeat(5 - hearts);
 
-  // 🎮 GAME OVER
   if (gameOver) {
     return (
       <View style={styles.container}>
         <Text style={styles.gameOver}>💔 Plus de vies</Text>
 
         <TouchableOpacity style={styles.rewardBtn} onPress={revive}>
-          <Text style={styles.btnText}>
-            🎁 Continuer (pub)
-          </Text>
+          <Text style={styles.btnText}>🎁 Continuer</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.quitBtn} onPress={endGame}>
@@ -162,9 +167,7 @@ export default function Quiz() {
   return (
     <View style={styles.container}>
       <Text style={styles.hearts}>{renderHearts()}</Text>
-
       <Text style={styles.money}>💰 ${money}</Text>
-
       <Text style={styles.timer}>⏱ {time}s</Text>
 
       <View style={styles.card}>
@@ -187,89 +190,27 @@ export default function Quiz() {
         </TouchableOpacity>
       ))}
 
-      <View style={{ marginTop: 10 }}>
-        <BannerAd
-          unitId="ca-app-pub-5350081816144613/9386901047"
-          size={BannerAdSize.BANNER}
-        />
-      </View>
+      <BannerAd
+        unitId="ca-app-pub-5350081816144613/9386901047"
+        size={BannerAdSize.BANNER}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#0A0F2C" },
-
-  hearts: { fontSize: 24, textAlign: "center", marginBottom: 10 },
-
-  money: {
-    color: "#FFD700",
-    fontSize: 22,
-    textAlign: "center",
-  },
-
-  timer: {
-    color: "white",
-    textAlign: "center",
-    marginBottom: 10,
-  },
-
-  card: {
-    backgroundColor: "#1E3A8A",
-    padding: 25,
-    borderRadius: 25,
-    marginBottom: 20,
-  },
-
-  question: {
-    color: "white",
-    fontSize: 18,
-    textAlign: "center",
-  },
-
-  option: {
-    backgroundColor: "#2563EB",
-    padding: 15,
-    borderRadius: 25,
-    marginVertical: 6,
-  },
-
-  optionText: {
-    color: "white",
-    textAlign: "center",
-  },
-
-  correct: {
-    backgroundColor: "green",
-  },
-
-  wrong: {
-    backgroundColor: "red",
-  },
-
-  gameOver: {
-    color: "white",
-    fontSize: 24,
-    textAlign: "center",
-    marginBottom: 20,
-  },
-
-  rewardBtn: {
-    backgroundColor: "#F59E0B",
-    padding: 15,
-    borderRadius: 20,
-    marginBottom: 10,
-  },
-
-  quitBtn: {
-    backgroundColor: "#EF4444",
-    padding: 15,
-    borderRadius: 20,
-  },
-
-  btnText: {
-    color: "white",
-    textAlign: "center",
-    fontWeight: "bold",
-  },
+  hearts: { fontSize: 24, textAlign: "center" },
+  money: { color: "#FFD700", fontSize: 22, textAlign: "center" },
+  timer: { color: "white", textAlign: "center" },
+  card: { backgroundColor: "#1E3A8A", padding: 25, borderRadius: 25 },
+  question: { color: "white", textAlign: "center" },
+  option: { backgroundColor: "#2563EB", padding: 15, borderRadius: 25, margin: 5 },
+  optionText: { color: "white", textAlign: "center" },
+  correct: { backgroundColor: "green" },
+  wrong: { backgroundColor: "red" },
+  gameOver: { color: "white", fontSize: 24, textAlign: "center" },
+  rewardBtn: { backgroundColor: "#F59E0B", padding: 15, borderRadius: 20 },
+  quitBtn: { backgroundColor: "#EF4444", padding: 15, borderRadius: 20 },
+  btnText: { color: "white", textAlign: "center" },
 });
