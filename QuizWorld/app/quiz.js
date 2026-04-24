@@ -1,16 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { QUESTIONS } from "../constants/questions";
 import { Audio } from "expo-av";
 
-// ADS
 import {
   BannerAd,
   BannerAdSize,
   InterstitialAd,
   RewardedAd,
-  AdEventType,
   RewardedAdEventType,
 } from "react-native-google-mobile-ads";
 
@@ -29,8 +27,8 @@ export default function Quiz() {
   const [money, setMoney] = useState(0);
   const [selected, setSelected] = useState(null);
   const [time, setTime] = useState(15);
-  const [hiddenOptions, setHiddenOptions] = useState([]);
-  const [canContinue, setCanContinue] = useState(false);
+  const [hearts, setHearts] = useState(5);
+  const [gameOver, setGameOver] = useState(false);
 
   const current = QUESTIONS[index];
 
@@ -38,11 +36,11 @@ export default function Quiz() {
   const playSound = async (type) => {
     const sound = new Audio.Sound();
     try {
-      if (type === "correct") {
-        await sound.loadAsync(require("../assets/sounds/correct.mp3"));
-      } else {
-        await sound.loadAsync(require("../assets/sounds/wrong.mp3"));
-      }
+      await sound.loadAsync(
+        type === "correct"
+          ? require("../assets/sounds/correct.mp3")
+          : require("../assets/sounds/wrong.mp3")
+      );
       await sound.playAsync();
     } catch {}
   };
@@ -50,7 +48,7 @@ export default function Quiz() {
   // ⏱ TIMER
   useEffect(() => {
     if (time === 0) {
-      endGame();
+      loseLife();
       return;
     }
 
@@ -58,42 +56,40 @@ export default function Quiz() {
     return () => clearTimeout(timer);
   }, [time]);
 
-  // 💥 LOAD INTERSTITIAL
+  // 💥 LOAD ADS
   useEffect(() => {
     interstitial.load();
     rewarded.load();
   }, []);
 
-  const showInterstitial = () => {
-    if (interstitial.loaded) {
-      interstitial.show();
+  const loseLife = async () => {
+    await playSound("wrong");
+
+    if (hearts - 1 <= 0) {
+      setHearts(0);
+      setGameOver(true);
+    } else {
+      setHearts(hearts - 1);
+      nextQuestion();
     }
   };
 
-  const showRewarded = () => {
-    rewarded.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
-      setCanContinue(true);
-      nextQuestion();
-    });
-
-    rewarded.load();
-    rewarded.show();
-  };
-
   const nextQuestion = () => {
-    setIndex(index + 1);
-    setSelected(null);
-    setTime(15);
-    setHiddenOptions([]);
+    if (index + 1 < QUESTIONS.length) {
+      setIndex(index + 1);
+      setSelected(null);
+      setTime(15);
+    } else {
+      endGame();
+    }
   };
 
   const endGame = () => {
-    showInterstitial(); // 💥 pub ici seulement
+    interstitial.show();
     router.push({ pathname: "/results", params: { money } });
   };
 
-  // 🎯 ANSWER
-  const handleAnswer = (option) => {
+  const handleAnswer = async (option) => {
     if (selected) return;
 
     setSelected(option);
@@ -102,40 +98,59 @@ export default function Quiz() {
       if (option === current.answer) {
         await playSound("correct");
 
-        const newMoney = money + current.reward;
-        setMoney(newMoney);
-
-        if (index + 1 < QUESTIONS.length) {
-          nextQuestion();
-        } else {
-          endGame();
-        }
+        setMoney(money + current.reward);
+        nextQuestion();
       } else {
-        await playSound("wrong");
-        setCanContinue(true); // 🎁 possibilité de continuer
+        loseLife();
       }
     }, 800);
   };
 
-  // 💡 50/50
-  const useFiftyFifty = () => {
-    const wrongOptions = current.options.filter(
-      (opt) => opt !== current.answer
+  // 🎁 REWARDED (REVIVE)
+  const revive = () => {
+    rewarded.addAdEventListener(
+      RewardedAdEventType.EARNED_REWARD,
+      () => {
+        setHearts(5);
+        setGameOver(false);
+      }
     );
-    setHiddenOptions(wrongOptions.slice(0, 2));
+
+    rewarded.load();
+    rewarded.show();
   };
+
+  // ❤️ UI Hearts
+  const renderHearts = () => {
+    return "❤️".repeat(hearts) + "🖤".repeat(5 - hearts);
+  };
+
+  // 🎮 GAME OVER SCREEN
+  if (gameOver) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.gameOver}>💔 Plus de vies</Text>
+
+        <TouchableOpacity style={styles.rewardBtn} onPress={revive}>
+          <Text style={{ color: "white" }}>
+            🎁 Regarder une pub pour continuer
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.quitBtn} onPress={endGame}>
+          <Text style={{ color: "white" }}>Quitter</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* 💰 MONEY */}
-      <View style={styles.moneyBox}>
-        <Text style={styles.money}>${money}</Text>
-      </View>
+      {/* ❤️ HEARTS */}
+      <Text style={styles.hearts}>{renderHearts()}</Text>
 
-      {/* 📊 PROGRESSION */}
-      <Text style={styles.progress}>
-        Question {index + 1} / {QUESTIONS.length}
-      </Text>
+      {/* 💰 MONEY */}
+      <Text style={styles.money}>💰 ${money}</Text>
 
       {/* ⏱ TIMER */}
       <Text style={styles.timer}>⏱ {time}s</Text>
@@ -145,76 +160,38 @@ export default function Quiz() {
         <Text style={styles.question}>{current.question}</Text>
       </View>
 
-      {/* OPTIONS */}
-      {current.options.map((opt) => {
-        if (hiddenOptions.includes(opt)) return null;
-
-        const isCorrect = opt === current.answer;
-        const isSelected = opt === selected;
-
-        return (
-          <TouchableOpacity
-            key={opt}
-            onPress={() => handleAnswer(opt)}
-            style={[
-              styles.option,
-              isSelected &&
-                (isCorrect ? styles.correct : styles.wrong),
-            ]}
-          >
-            <Text style={styles.optionText}>{opt}</Text>
-          </TouchableOpacity>
-        );
-      })}
-
-      {/* 🎁 CONTINUE AVEC PUB */}
-      {canContinue && (
-        <TouchableOpacity style={styles.rewardBtn} onPress={showRewarded}>
-          <Text style={{ color: "white" }}>
-            🎁 Continuer (regarder une pub)
-          </Text>
+      {current.options.map((opt) => (
+        <TouchableOpacity
+          key={opt}
+          onPress={() => handleAnswer(opt)}
+          style={styles.option}
+        >
+          <Text style={styles.optionText}>{opt}</Text>
         </TouchableOpacity>
-      )}
-
-      {/* 💡 JOKER */}
-      <TouchableOpacity style={styles.joker} onPress={useFiftyFifty}>
-        <Text style={{ color: "white" }}>💡 50/50</Text>
-      </TouchableOpacity>
+      ))}
 
       {/* 📢 BANNER */}
-      <View style={{ alignItems: "center", marginTop: 10 }}>
-        <BannerAd
-          unitId="ca-app-pub-5350081816144613/9386901047"
-          size={BannerAdSize.BANNER}
-        />
-      </View>
+      <BannerAd
+        unitId="ca-app-pub-5350081816144613/9386901047"
+        size={BannerAdSize.BANNER}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: "#0A0F2C",
-  },
+  container: { flex: 1, padding: 20, backgroundColor: "#0A0F2C" },
 
-  moneyBox: {
-    backgroundColor: "#FFD700",
-    padding: 10,
-    borderRadius: 20,
-    alignSelf: "center",
+  hearts: {
+    fontSize: 24,
+    textAlign: "center",
+    marginBottom: 10,
   },
 
   money: {
+    color: "#FFD700",
     fontSize: 22,
-    fontWeight: "bold",
-  },
-
-  progress: {
-    color: "white",
     textAlign: "center",
-    marginTop: 10,
   },
 
   timer: {
@@ -246,30 +223,25 @@ const styles = StyleSheet.create({
   optionText: {
     color: "white",
     textAlign: "center",
-    fontWeight: "bold",
   },
 
-  correct: {
-    backgroundColor: "green",
-  },
-
-  wrong: {
-    backgroundColor: "red",
-  },
-
-  joker: {
-    marginTop: 15,
-    alignSelf: "center",
-    backgroundColor: "#9333EA",
-    padding: 10,
-    borderRadius: 20,
+  gameOver: {
+    color: "white",
+    fontSize: 24,
+    textAlign: "center",
+    marginBottom: 20,
   },
 
   rewardBtn: {
-    marginTop: 15,
-    alignSelf: "center",
     backgroundColor: "#F59E0B",
-    padding: 12,
+    padding: 15,
+    borderRadius: 20,
+    marginBottom: 10,
+  },
+
+  quitBtn: {
+    backgroundColor: "#EF4444",
+    padding: 15,
     borderRadius: 20,
   },
 });
