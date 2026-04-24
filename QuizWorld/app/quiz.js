@@ -1,8 +1,26 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { QUESTIONS } from "../constants/questions";
 import { Audio } from "expo-av";
+
+// ADS
+import {
+  BannerAd,
+  BannerAdSize,
+  InterstitialAd,
+  RewardedAd,
+  AdEventType,
+  RewardedAdEventType,
+} from "react-native-google-mobile-ads";
+
+const interstitial = InterstitialAd.createForAdRequest(
+  "ca-app-pub-5350081816144613/1045376590"
+);
+
+const rewarded = RewardedAd.createForAdRequest(
+  "ca-app-pub-5350081816144613/1045376590"
+);
 
 export default function Quiz() {
   const router = useRouter();
@@ -12,6 +30,7 @@ export default function Quiz() {
   const [selected, setSelected] = useState(null);
   const [time, setTime] = useState(15);
   const [hiddenOptions, setHiddenOptions] = useState([]);
+  const [canContinue, setCanContinue] = useState(false);
 
   const current = QUESTIONS[index];
 
@@ -25,19 +44,53 @@ export default function Quiz() {
         await sound.loadAsync(require("../assets/sounds/wrong.mp3"));
       }
       await sound.playAsync();
-    } catch (error) {}
+    } catch {}
   };
 
   // ⏱ TIMER
   useEffect(() => {
     if (time === 0) {
-      router.push({ pathname: "/results", params: { money } });
+      endGame();
       return;
     }
 
     const timer = setTimeout(() => setTime(time - 1), 1000);
     return () => clearTimeout(timer);
   }, [time]);
+
+  // 💥 LOAD INTERSTITIAL
+  useEffect(() => {
+    interstitial.load();
+    rewarded.load();
+  }, []);
+
+  const showInterstitial = () => {
+    if (interstitial.loaded) {
+      interstitial.show();
+    }
+  };
+
+  const showRewarded = () => {
+    rewarded.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
+      setCanContinue(true);
+      nextQuestion();
+    });
+
+    rewarded.load();
+    rewarded.show();
+  };
+
+  const nextQuestion = () => {
+    setIndex(index + 1);
+    setSelected(null);
+    setTime(15);
+    setHiddenOptions([]);
+  };
+
+  const endGame = () => {
+    showInterstitial(); // 💥 pub ici seulement
+    router.push({ pathname: "/results", params: { money } });
+  };
 
   // 🎯 ANSWER
   const handleAnswer = (option) => {
@@ -53,16 +106,13 @@ export default function Quiz() {
         setMoney(newMoney);
 
         if (index + 1 < QUESTIONS.length) {
-          setIndex(index + 1);
-          setSelected(null);
-          setTime(15);
-          setHiddenOptions([]);
+          nextQuestion();
         } else {
-          router.push({ pathname: "/results", params: { money: newMoney } });
+          endGame();
         }
       } else {
         await playSound("wrong");
-        router.push({ pathname: "/results", params: { money } });
+        setCanContinue(true); // 🎁 possibilité de continuer
       }
     }, 800);
   };
@@ -72,9 +122,7 @@ export default function Quiz() {
     const wrongOptions = current.options.filter(
       (opt) => opt !== current.answer
     );
-
-    const removed = wrongOptions.slice(0, 2);
-    setHiddenOptions(removed);
+    setHiddenOptions(wrongOptions.slice(0, 2));
   };
 
   return (
@@ -111,7 +159,7 @@ export default function Quiz() {
             style={[
               styles.option,
               isSelected &&
-                (isCorrect ? styles.correct : styles.wrong)
+                (isCorrect ? styles.correct : styles.wrong),
             ]}
           >
             <Text style={styles.optionText}>{opt}</Text>
@@ -119,10 +167,27 @@ export default function Quiz() {
         );
       })}
 
+      {/* 🎁 CONTINUE AVEC PUB */}
+      {canContinue && (
+        <TouchableOpacity style={styles.rewardBtn} onPress={showRewarded}>
+          <Text style={{ color: "white" }}>
+            🎁 Continuer (regarder une pub)
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* 💡 JOKER */}
       <TouchableOpacity style={styles.joker} onPress={useFiftyFifty}>
         <Text style={{ color: "white" }}>💡 50/50</Text>
       </TouchableOpacity>
+
+      {/* 📢 BANNER */}
+      <View style={{ alignItems: "center", marginTop: 10 }}>
+        <BannerAd
+          unitId="ca-app-pub-5350081816144613/9386901047"
+          size={BannerAdSize.BANNER}
+        />
+      </View>
     </View>
   );
 }
@@ -131,72 +196,80 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#0A0F2C"
+    backgroundColor: "#0A0F2C",
   },
 
   moneyBox: {
     backgroundColor: "#FFD700",
     padding: 10,
     borderRadius: 20,
-    alignSelf: "center"
+    alignSelf: "center",
   },
 
   money: {
     fontSize: 22,
-    fontWeight: "bold"
+    fontWeight: "bold",
   },
 
   progress: {
     color: "white",
     textAlign: "center",
-    marginTop: 10
+    marginTop: 10,
   },
 
   timer: {
     color: "white",
     textAlign: "center",
-    marginBottom: 10
+    marginBottom: 10,
   },
 
   card: {
     backgroundColor: "#1E3A8A",
     padding: 25,
     borderRadius: 25,
-    marginBottom: 20
+    marginBottom: 20,
   },
 
   question: {
     color: "white",
     fontSize: 18,
-    textAlign: "center"
+    textAlign: "center",
   },
 
   option: {
     backgroundColor: "#2563EB",
     padding: 15,
     borderRadius: 25,
-    marginVertical: 6
+    marginVertical: 6,
   },
 
   optionText: {
     color: "white",
     textAlign: "center",
-    fontWeight: "bold"
+    fontWeight: "bold",
   },
 
   correct: {
-    backgroundColor: "green"
+    backgroundColor: "green",
   },
 
   wrong: {
-    backgroundColor: "red"
+    backgroundColor: "red",
   },
 
   joker: {
-    marginTop: 20,
+    marginTop: 15,
     alignSelf: "center",
     backgroundColor: "#9333EA",
     padding: 10,
-    borderRadius: 20
-  }
+    borderRadius: 20,
+  },
+
+  rewardBtn: {
+    marginTop: 15,
+    alignSelf: "center",
+    backgroundColor: "#F59E0B",
+    padding: 12,
+    borderRadius: 20,
+  },
 });
