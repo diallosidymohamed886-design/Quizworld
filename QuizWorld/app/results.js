@@ -1,5 +1,11 @@
-import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { useEffect, useState, useRef } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -30,11 +36,20 @@ export default function Results() {
   const [bestScore, setBestScore] = useState(0);
   const [gamesPlayed, setGamesPlayed] = useState(0);
 
-  // 💥 INTERSTITIAL (UX SAFE)
-  useEffect(() => {
-    interstitial.load();
+  const scaleAnim = useRef(new Animated.Value(0)).current;
 
-    const unsubscribe = interstitial.addAdEventListener(
+  // 🎬 Animation entrée
+  useEffect(() => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 6,
+    }).start();
+  }, []);
+
+  // 💥 INTERSTITIAL SAFE (no crash)
+  useEffect(() => {
+    const unsub = interstitial.addAdEventListener(
       AdEventType.LOADED,
       () => {
         if (Math.random() < 0.5) {
@@ -45,7 +60,9 @@ export default function Results() {
       }
     );
 
-    return unsubscribe;
+    interstitial.load();
+
+    return () => unsub();
   }, []);
 
   // 💾 LOAD STATS
@@ -63,20 +80,23 @@ export default function Results() {
     loadStats();
   }, []);
 
-  // 🧠 MESSAGE
+  // 🧠 MESSAGE INTELLIGENT
   useEffect(() => {
     if (money < 200) setMessage("😅 Continue, tu progresses !");
-    else if (money < 500) setMessage("🔥 Bien joué !");
+    else if (money < 500) setMessage("🔥 Bon niveau !");
     else if (money < 1000) setMessage("🚀 Très fort !");
-    else setMessage("🏆 Tu es une légende !");
+    else if (money < 2000) setMessage("💎 Élites !");
+    else setMessage("👑 LÉGENDE VIVANTE !");
   }, [money]);
 
-  // 🎁 BONUS SAFE
+  // 🎁 BONUS SAFE (no leak)
   const getBonus = () => {
     const unsubLoaded = rewarded.addAdEventListener(
       AdEventType.LOADED,
       () => {
-        rewarded.show();
+        try {
+          rewarded.show();
+        } catch {}
       }
     );
 
@@ -92,16 +112,22 @@ export default function Results() {
     setTimeout(() => {
       unsubLoaded();
       unsubReward();
-    }, 5000);
+    }, 4000);
   };
 
   return (
     <View style={styles.container}>
       {/* 🏆 HEADER */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Résultat</Text>
+      <Animated.View
+        style={[
+          styles.header,
+          { transform: [{ scale: scaleAnim }] },
+        ]}
+      >
+        <Text style={styles.title}>RÉSULTAT</Text>
+
         <Text style={styles.score}>💰 {money}</Text>
-      </View>
+      </Animated.View>
 
       {/* 🧠 MESSAGE */}
       <Text style={styles.message}>{message}</Text>
@@ -109,12 +135,12 @@ export default function Results() {
       {/* 📊 STATS */}
       <View style={styles.statsBox}>
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Meilleur</Text>
+          <Text style={styles.statLabel}>🏆 Meilleur</Text>
           <Text style={styles.statValue}>{bestScore}</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Parties</Text>
+          <Text style={styles.statLabel}>🎮 Parties</Text>
           <Text style={styles.statValue}>{gamesPlayed}</Text>
         </View>
       </View>
@@ -122,14 +148,19 @@ export default function Results() {
       {/* 🔘 ACTIONS */}
       <View style={styles.buttons}>
         <TouchableOpacity
+          activeOpacity={0.8}
           style={styles.buttonPrimary}
           onPress={() => router.replace("/")}
         >
-          <Text style={styles.buttonText}>Rejouer</Text>
+          <Text style={styles.buttonText}>REJOUER</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.buttonBonus} onPress={getBonus}>
-          <Text style={styles.buttonText}>🎁 Bonus</Text>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={styles.buttonBonus}
+          onPress={getBonus}
+        >
+          <Text style={styles.buttonText}>🎁 BONUS</Text>
         </TouchableOpacity>
       </View>
 
@@ -154,16 +185,17 @@ const styles = StyleSheet.create({
 
   header: {
     alignItems: "center",
-    marginTop: 30,
+    marginTop: 40,
   },
 
   title: {
-    color: "#9CA3AF",
-    fontSize: 18,
+    color: "#6B7280",
+    fontSize: 14,
+    letterSpacing: 2,
   },
 
   score: {
-    fontSize: 60,
+    fontSize: 70,
     color: "#FFD700",
     fontWeight: "bold",
     marginTop: 10,
@@ -171,14 +203,15 @@ const styles = StyleSheet.create({
 
   message: {
     color: "white",
-    fontSize: 18,
+    fontSize: 20,
     textAlign: "center",
-    marginVertical: 10,
+    marginVertical: 15,
+    fontWeight: "600",
   },
 
   statsBox: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    justifyContent: "space-between",
   },
 
   statCard: {
@@ -186,7 +219,11 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 20,
     alignItems: "center",
-    width: 130,
+    width: "48%",
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
   },
 
   statLabel: {
@@ -196,8 +233,9 @@ const styles = StyleSheet.create({
 
   statValue: {
     color: "white",
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "bold",
+    marginTop: 5,
   },
 
   buttons: {
@@ -209,6 +247,10 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 20,
     alignItems: "center",
+    shadowColor: "#2563EB",
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
   },
 
   buttonBonus: {
@@ -222,6 +264,7 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
     fontSize: 18,
+    letterSpacing: 1,
   },
 
   banner: {
