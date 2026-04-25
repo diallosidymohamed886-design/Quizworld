@@ -1,4 +1,10 @@
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -11,6 +17,9 @@ import {
   RewardedAdEventType,
   AdEventType,
 } from "react-native-google-mobile-ads";
+
+// 📱 Responsive
+const { width } = Dimensions.get("window");
 
 // 💥 PUB
 const interstitial = InterstitialAd.createForAdRequest(
@@ -28,7 +37,6 @@ export default function Home() {
   const [gamesPlayed, setGamesPlayed] = useState(0);
   const [streak, setStreak] = useState(0);
 
-  // 🔥 LOAD DATA
   useEffect(() => {
     loadData();
   }, []);
@@ -45,7 +53,7 @@ export default function Home() {
     } catch {}
   };
 
-  // 🔥 INTERSTITIAL (safe)
+  // 💥 INTERSTITIAL SAFE
   useEffect(() => {
     interstitial.load();
 
@@ -60,12 +68,21 @@ export default function Home() {
       }
     );
 
-    return unsub;
+    return () => unsub();
   }, []);
 
-  // 🎁 COFFRE QUOTIDIEN
+  // 🎁 COFFRE SAFE
   const openChest = () => {
-    rewarded.addAdEventListener(
+    const unsubLoaded = rewarded.addAdEventListener(
+      AdEventType.LOADED,
+      () => {
+        try {
+          rewarded.show();
+        } catch {}
+      }
+    );
+
+    const unsubReward = rewarded.addAdEventListener(
       RewardedAdEventType.EARNED_REWARD,
       async () => {
         const reward = 300;
@@ -75,7 +92,6 @@ export default function Home() {
 
         await AsyncStorage.setItem("BEST_SCORE", newBest.toString());
 
-        // 🔥 STREAK +1
         const newStreak = streak + 1;
         setStreak(newStreak);
         await AsyncStorage.setItem("STREAK", newStreak.toString());
@@ -85,10 +101,13 @@ export default function Home() {
     );
 
     rewarded.load();
-    rewarded.show();
+
+    setTimeout(() => {
+      unsubLoaded();
+      unsubReward();
+    }, 4000);
   };
 
-  // 🏆 RANG
   const getRank = () => {
     if (bestScore < 500) return "Débutant";
     if (bestScore < 1500) return "Pro";
@@ -97,7 +116,7 @@ export default function Home() {
 
   return (
     <View style={styles.container}>
-      {/* 🌍 HEADER */}
+      {/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.logo}>🌍</Text>
         <Text style={styles.title}>QuizWorld</Text>
@@ -106,7 +125,7 @@ export default function Home() {
         </Text>
       </View>
 
-      {/* 📊 STATS */}
+      {/* STATS */}
       <View style={styles.statsBox}>
         <Text style={styles.stat}>🏆 {bestScore}</Text>
         <Text style={styles.stat}>🎮 {gamesPlayed} parties</Text>
@@ -114,16 +133,16 @@ export default function Home() {
         <Text style={styles.rank}>👑 {getRank()}</Text>
       </View>
 
-      {/* 🎮 PLAY */}
+      {/* PLAY BUTTON */}
       <TouchableOpacity
         activeOpacity={0.85}
         style={styles.playButton}
-        onPress={() => router.push("/quiz")}
+        onPress={() => router.replace("/quiz")}
       >
         <Text style={styles.playText}>JOUER</Text>
       </TouchableOpacity>
 
-      {/* 🎁 COFFRE */}
+      {/* CHEST */}
       <TouchableOpacity
         activeOpacity={0.85}
         style={styles.chest}
@@ -132,14 +151,14 @@ export default function Home() {
         <Text style={styles.chestText}>🎁 Coffre quotidien</Text>
       </TouchableOpacity>
 
-      {/* 💡 INFOS */}
+      {/* INFOS */}
       <View style={styles.infoBox}>
         <Text style={styles.info}>🔥 Combo & multiplicateur</Text>
         <Text style={styles.info}>🧠 100+ questions</Text>
         <Text style={styles.info}>🏆 Deviens une légende</Text>
       </View>
 
-      {/* 📢 PUB */}
+      {/* PUB */}
       <BannerAd
         unitId="ca-app-pub-5350081816144613/9386901047"
         size={BannerAdSize.BANNER}
@@ -163,73 +182,80 @@ const styles = StyleSheet.create({
   },
 
   logo: {
-    fontSize: 50,
+    fontSize: 60, // 🔥 plus visible
   },
 
   title: {
-    fontSize: 40,
+    fontSize: 42,
     color: "white",
     fontWeight: "bold",
   },
 
   subtitle: {
     color: "#9CA3AF",
-    marginTop: 5,
+    marginTop: 6,
+    fontSize: 16,
+    textAlign: "center",
   },
 
   statsBox: {
     backgroundColor: "#111827",
-    padding: 15,
+    paddingVertical: 20,
+    paddingHorizontal: 15,
     borderRadius: 20,
     width: "100%",
     alignItems: "center",
-    gap: 5,
+    gap: 8,
   },
 
   stat: {
     color: "#E5E7EB",
-    fontSize: 16,
+    fontSize: 18, // 🔥 plus lisible
   },
 
   rank: {
     color: "#FFD700",
     fontWeight: "bold",
+    fontSize: 18,
   },
 
   playButton: {
     backgroundColor: "#FFD700",
-    paddingVertical: 22,
-    paddingHorizontal: 80,
+    width: width * 0.9, // 🔥 bouton large
+    paddingVertical: 24,
     borderRadius: 30,
+    alignItems: "center",
     elevation: 10,
   },
 
   playText: {
-    fontSize: 22,
+    fontSize: 24, // 🔥 gros texte
     fontWeight: "bold",
     color: "#000",
+    letterSpacing: 1,
   },
 
   chest: {
     backgroundColor: "#F59E0B",
-    paddingVertical: 16,
-    paddingHorizontal: 50,
+    width: width * 0.9,
+    paddingVertical: 18,
     borderRadius: 25,
+    alignItems: "center",
   },
 
   chestText: {
     color: "white",
     fontWeight: "bold",
-    fontSize: 16,
+    fontSize: 18,
   },
 
   infoBox: {
     alignItems: "center",
-    gap: 6,
+    gap: 8,
   },
 
   info: {
     color: "#E5E7EB",
-    fontSize: 14,
+    fontSize: 16,
   },
 });
