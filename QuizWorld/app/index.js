@@ -1,60 +1,40 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import {
   BannerAd,
   BannerAdSize,
   InterstitialAd,
-  RewardedAd,
   AdEventType,
-  RewardedAdEventType,
 } from "react-native-google-mobile-ads";
 
-// 💥 Interstitial (rare)
+// 💥 Interstitial
 const interstitial = InterstitialAd.createForAdRequest(
-  "ca-app-pub-5350081816144613/1045376590"
-);
-
-// 🎁 Rewarded
-const rewarded = RewardedAd.createForAdRequest(
   "ca-app-pub-5350081816144613/1045376590"
 );
 
 export default function Home() {
   const router = useRouter();
-  const [showAd, setShowAd] = useState(false);
 
-  // 💥 Charger interstitial (mais pas forcer)
+  // 💥 Charger pub intelligemment
   useEffect(() => {
     interstitial.load();
 
     const unsubscribe = interstitial.addAdEventListener(
       AdEventType.LOADED,
       () => {
-        // 🎯 30% de chance de montrer pub (UX safe)
+        // 🎯 30% de chance
         if (Math.random() < 0.3) {
-          interstitial.show();
+          try {
+            interstitial.show();
+          } catch {}
         }
       }
     );
 
     return unsubscribe;
   }, []);
-
-  // 🎁 Bonus (rewarded)
-  const handleBonus = () => {
-    rewarded.addAdEventListener(
-      RewardedAdEventType.EARNED_REWARD,
-      () => {
-        // 👉 ici tu peux donner bonus plus tard
-        router.push("/quiz");
-      }
-    );
-
-    rewarded.load();
-    rewarded.show();
-  };
 
   return (
     <View style={styles.container}>
@@ -68,13 +48,8 @@ export default function Home() {
         <Text style={styles.text}>Jouer</Text>
       </TouchableOpacity>
 
-      {/* 🎁 BONUS */}
-      <TouchableOpacity style={styles.bonus} onPress={handleBonus}>
-        <Text style={styles.text}>🎁 Jouer + Bonus</Text>
-      </TouchableOpacity>
-
       {/* 📢 BANNER */}
-      <View style={{ marginTop: 30 }}>
+      <View style={styles.banner}>
         <BannerAd
           unitId="ca-app-pub-5350081816144613/9386901047"
           size={BannerAdSize.BANNER}
@@ -87,36 +62,33 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "space-evenly",
     alignItems: "center",
     backgroundColor: "#0A0F2C",
+    padding: 20,
   },
 
   title: {
-    fontSize: 32,
+    fontSize: 42,
     color: "white",
-    marginBottom: 30,
     fontWeight: "bold",
+    textAlign: "center",
   },
 
   button: {
     backgroundColor: "#FFD700",
-    padding: 15,
-    borderRadius: 15,
-    marginBottom: 10,
-    width: 200,
-    alignItems: "center",
-  },
-
-  bonus: {
-    backgroundColor: "#F59E0B",
-    padding: 15,
-    borderRadius: 15,
-    width: 200,
+    paddingVertical: 20,
+    paddingHorizontal: 60,
+    borderRadius: 20,
     alignItems: "center",
   },
 
   text: {
+    fontSize: 20,
     fontWeight: "bold",
+  },
+
+  banner: {
+    marginBottom: 10,
   },
 });
