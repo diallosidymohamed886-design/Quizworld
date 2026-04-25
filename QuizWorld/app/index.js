@@ -4,6 +4,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -13,20 +14,13 @@ import {
   BannerAd,
   BannerAdSize,
   InterstitialAd,
-  RewardedAd,
-  RewardedAdEventType,
   AdEventType,
 } from "react-native-google-mobile-ads";
 
-// 📱 Responsive
 const { width } = Dimensions.get("window");
 
-// 💥 PUB
+// 💥 PUB (SAFE)
 const interstitial = InterstitialAd.createForAdRequest(
-  "ca-app-pub-5350081816144613/1045376590"
-);
-
-const rewarded = RewardedAd.createForAdRequest(
   "ca-app-pub-5350081816144613/1045376590"
 );
 
@@ -36,7 +30,9 @@ export default function Home() {
   const [bestScore, setBestScore] = useState(0);
   const [gamesPlayed, setGamesPlayed] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [leaderboard, setLeaderboard] = useState([]);
 
+  // 🔥 LOAD DATA
   useEffect(() => {
     loadData();
   }, []);
@@ -46,10 +42,12 @@ export default function Home() {
       const best = await AsyncStorage.getItem("BEST_SCORE");
       const games = await AsyncStorage.getItem("GAMES_PLAYED");
       const streakData = await AsyncStorage.getItem("STREAK");
+      const board = await AsyncStorage.getItem("LEADERBOARD");
 
       setBestScore(best ? parseInt(best) : 0);
       setGamesPlayed(games ? parseInt(games) : 0);
       setStreak(streakData ? parseInt(streakData) : 0);
+      setLeaderboard(board ? JSON.parse(board) : []);
     } catch {}
   };
 
@@ -60,7 +58,7 @@ export default function Home() {
     const unsub = interstitial.addAdEventListener(
       AdEventType.LOADED,
       () => {
-        if (Math.random() < 0.25) {
+        if (Math.random() < 0.2) {
           try {
             interstitial.show();
           } catch {}
@@ -71,43 +69,7 @@ export default function Home() {
     return () => unsub();
   }, []);
 
-  // 🎁 COFFRE SAFE
-  const openChest = () => {
-    const unsubLoaded = rewarded.addAdEventListener(
-      AdEventType.LOADED,
-      () => {
-        try {
-          rewarded.show();
-        } catch {}
-      }
-    );
-
-    const unsubReward = rewarded.addAdEventListener(
-      RewardedAdEventType.EARNED_REWARD,
-      async () => {
-        const reward = 300;
-
-        const newBest =
-          reward > bestScore ? reward : bestScore;
-
-        await AsyncStorage.setItem("BEST_SCORE", newBest.toString());
-
-        const newStreak = streak + 1;
-        setStreak(newStreak);
-        await AsyncStorage.setItem("STREAK", newStreak.toString());
-
-        loadData();
-      }
-    );
-
-    rewarded.load();
-
-    setTimeout(() => {
-      unsubLoaded();
-      unsubReward();
-    }, 4000);
-  };
-
+  // 🏆 RANK
   const getRank = () => {
     if (bestScore < 500) return "Débutant";
     if (bestScore < 1500) return "Pro";
@@ -115,8 +77,8 @@ export default function Home() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* HEADER */}
+    <ScrollView contentContainerStyle={styles.container}>
+      {/* 🌍 HEADER */}
       <View style={styles.header}>
         <Text style={styles.logo}>🌍</Text>
         <Text style={styles.title}>QuizWorld</Text>
@@ -125,7 +87,7 @@ export default function Home() {
         </Text>
       </View>
 
-      {/* STATS */}
+      {/* 📊 STATS */}
       <View style={styles.statsBox}>
         <Text style={styles.stat}>🏆 {bestScore}</Text>
         <Text style={styles.stat}>🎮 {gamesPlayed} parties</Text>
@@ -133,7 +95,7 @@ export default function Home() {
         <Text style={styles.rank}>👑 {getRank()}</Text>
       </View>
 
-      {/* PLAY BUTTON */}
+      {/* 🎮 PLAY */}
       <TouchableOpacity
         activeOpacity={0.85}
         style={styles.playButton}
@@ -142,47 +104,54 @@ export default function Home() {
         <Text style={styles.playText}>JOUER</Text>
       </TouchableOpacity>
 
-      {/* CHEST */}
-      <TouchableOpacity
-        activeOpacity={0.85}
-        style={styles.chest}
-        onPress={openChest}
-      >
-        <Text style={styles.chestText}>🎁 Coffre quotidien</Text>
-      </TouchableOpacity>
+      {/* 🏆 CLASSEMENT */}
+      <View style={styles.leaderboardBox}>
+        <Text style={styles.leaderboardTitle}>🏆 Top joueurs</Text>
 
-      {/* INFOS */}
+        {leaderboard.length === 0 ? (
+          <Text style={styles.empty}>Aucun score encore</Text>
+        ) : (
+          leaderboard.slice(0, 5).map((item, index) => (
+            <View key={index} style={styles.row}>
+              <Text style={styles.rankNum}>#{index + 1}</Text>
+              <Text style={styles.score}>{item.score}</Text>
+            </View>
+          ))
+        )}
+      </View>
+
+      {/* 💡 INFOS */}
       <View style={styles.infoBox}>
         <Text style={styles.info}>🔥 Combo & multiplicateur</Text>
         <Text style={styles.info}>🧠 100+ questions</Text>
-        <Text style={styles.info}>🏆 Deviens une légende</Text>
+        <Text style={styles.info}>🏆 Monte dans le classement</Text>
       </View>
 
-      {/* PUB */}
+      {/* 📢 PUB */}
       <BannerAd
         unitId="ca-app-pub-5350081816144613/9386901047"
         size={BannerAdSize.BANNER}
       />
-    </View>
+    </ScrollView>
   );
 }
 
+// 🎨 DESIGN PRO MAX
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#0A0F2C",
-    justifyContent: "space-between",
-    alignItems: "center",
     padding: 20,
+    backgroundColor: "#0A0F2C",
+    alignItems: "center",
   },
 
   header: {
     alignItems: "center",
     marginTop: 30,
+    marginBottom: 20,
   },
 
   logo: {
-    fontSize: 60, // 🔥 plus visible
+    fontSize: 70,
   },
 
   title: {
@@ -193,24 +162,24 @@ const styles = StyleSheet.create({
 
   subtitle: {
     color: "#9CA3AF",
-    marginTop: 6,
     fontSize: 16,
     textAlign: "center",
+    marginTop: 5,
   },
 
   statsBox: {
     backgroundColor: "#111827",
-    paddingVertical: 20,
-    paddingHorizontal: 15,
+    padding: 20,
     borderRadius: 20,
     width: "100%",
     alignItems: "center",
+    marginBottom: 20,
     gap: 8,
   },
 
   stat: {
     color: "#E5E7EB",
-    fontSize: 18, // 🔥 plus lisible
+    fontSize: 18,
   },
 
   rank: {
@@ -221,37 +190,60 @@ const styles = StyleSheet.create({
 
   playButton: {
     backgroundColor: "#FFD700",
-    width: width * 0.9, // 🔥 bouton large
+    width: width * 0.9,
     paddingVertical: 24,
     borderRadius: 30,
     alignItems: "center",
-    elevation: 10,
+    marginBottom: 20,
   },
 
   playText: {
-    fontSize: 24, // 🔥 gros texte
+    fontSize: 24,
     fontWeight: "bold",
     color: "#000",
-    letterSpacing: 1,
   },
 
-  chest: {
-    backgroundColor: "#F59E0B",
-    width: width * 0.9,
-    paddingVertical: 18,
-    borderRadius: 25,
-    alignItems: "center",
+  // 🏆 LEADERBOARD
+  leaderboardBox: {
+    width: "100%",
+    backgroundColor: "#111827",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
   },
 
-  chestText: {
+  leaderboardTitle: {
     color: "white",
-    fontWeight: "bold",
     fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+  },
+
+  rankNum: {
+    color: "#9CA3AF",
+    fontSize: 16,
+  },
+
+  score: {
+    color: "#FFD700",
+    fontWeight: "bold",
+  },
+
+  empty: {
+    color: "#9CA3AF",
+    textAlign: "center",
   },
 
   infoBox: {
     alignItems: "center",
     gap: 8,
+    marginBottom: 20,
   },
 
   info: {
