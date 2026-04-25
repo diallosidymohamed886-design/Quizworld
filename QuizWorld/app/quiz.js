@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { QUESTIONS } from "../constants/questions";
 import { Audio } from "expo-av";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Haptics from "expo-haptics";
 
 import {
   BannerAd,
@@ -43,6 +44,10 @@ export default function Quiz() {
   const [gameOver, setGameOver] = useState(false);
   const [shuffledOptions, setShuffledOptions] = useState([]);
 
+  // 🔥 NOUVEAU
+  const [combo, setCombo] = useState(1);
+  const [streak, setStreak] = useState(0);
+
   const current = QUESTIONS[index];
 
   useEffect(() => {
@@ -67,7 +72,6 @@ export default function Quiz() {
       loseLife();
       return;
     }
-
     const timer = setTimeout(() => setTime(time - 1), 1000);
     return () => clearTimeout(timer);
   }, [time]);
@@ -80,6 +84,10 @@ export default function Quiz() {
 
   const loseLife = async () => {
     await playSound("wrong");
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+    setStreak(0);
+    setCombo(1);
 
     if (hearts - 1 <= 0) {
       setHearts(0);
@@ -122,6 +130,7 @@ export default function Quiz() {
     router.push({ pathname: "/results", params: { money } });
   };
 
+  // 🎯 RÉPONSE (MODE ULTIME)
   const handleAnswer = (option) => {
     if (selected) return;
 
@@ -130,7 +139,21 @@ export default function Quiz() {
     setTimeout(async () => {
       if (option === current.answer) {
         await playSound("correct");
-        setMoney((m) => m + current.reward);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        const newStreak = streak + 1;
+        setStreak(newStreak);
+
+        let newCombo = 1;
+        if (newStreak >= 3) newCombo = 2;
+        if (newStreak >= 6) newCombo = 3;
+        if (newStreak >= 10) newCombo = 5;
+
+        setCombo(newCombo);
+
+        const gain = current.reward * newCombo;
+        setMoney((m) => m + gain);
+
         nextQuestion();
       } else {
         loseLife();
@@ -138,16 +161,14 @@ export default function Quiz() {
     }, 500);
   };
 
-  // 🎁 REVIVE SAFE (fix crash + memory leak)
+  // 🎁 REVIVE
   const revive = () => {
-    const unsubscribeLoaded = rewarded.addAdEventListener(
+    const unsubLoaded = rewarded.addAdEventListener(
       AdEventType.LOADED,
-      () => {
-        rewarded.show();
-      }
+      () => rewarded.show()
     );
 
-    const unsubscribeReward = rewarded.addAdEventListener(
+    const unsubReward = rewarded.addAdEventListener(
       RewardedAdEventType.EARNED_REWARD,
       () => {
         setHearts(5);
@@ -157,10 +178,9 @@ export default function Quiz() {
 
     rewarded.load();
 
-    // 🔥 nettoyage listeners
     setTimeout(() => {
-      unsubscribeLoaded();
-      unsubscribeReward();
+      unsubLoaded();
+      unsubReward();
     }, 5000);
   };
 
@@ -186,7 +206,7 @@ export default function Quiz() {
 
   return (
     <View style={styles.container}>
-      {/* 🔝 HEADER */}
+      {/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.hearts}>{renderHearts()}</Text>
 
@@ -199,24 +219,24 @@ export default function Quiz() {
         </View>
       </View>
 
-      {/* 📊 PROGRESSION */}
+      {/* 🔥 COMBO UI */}
+      <View style={styles.comboBox}>
+        <Text style={styles.combo}>🔥 x{combo}</Text>
+        <Text style={styles.streak}>Streak: {streak}</Text>
+      </View>
+
       <Text style={styles.progress}>
         Question {index + 1}/{QUESTIONS.length}
       </Text>
 
-      {/* 💎 QUESTION */}
-      <View style={styles.cardShadow}>
-        <View style={styles.card}>
-          <Text style={styles.question}>{current.question}</Text>
-        </View>
+      <View style={styles.card}>
+        <Text style={styles.question}>{current.question}</Text>
       </View>
 
-      {/* 🎮 OPTIONS */}
       <View style={styles.optionsContainer}>
         {shuffledOptions.map((opt) => (
           <TouchableOpacity
             key={opt}
-            activeOpacity={0.8}
             onPress={() => handleAnswer(opt)}
             style={[
               styles.option,
@@ -231,7 +251,6 @@ export default function Quiz() {
         ))}
       </View>
 
-      {/* 📢 PUB */}
       <BannerAd
         unitId="ca-app-pub-5350081816144613/9386901047"
         size={BannerAdSize.BANNER}
@@ -254,9 +273,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  hearts: {
-    fontSize: 26,
-  },
+  hearts: { fontSize: 26 },
 
   scoreBox: {
     backgroundColor: "#111827",
@@ -278,21 +295,21 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
 
-  timer: {
-    color: "white",
+  timer: { color: "white", fontWeight: "bold" },
+
+  comboBox: { alignItems: "center" },
+
+  combo: {
+    color: "#F59E0B",
+    fontSize: 22,
     fontWeight: "bold",
   },
+
+  streak: { color: "#9CA3AF" },
 
   progress: {
     color: "#9CA3AF",
     textAlign: "center",
-  },
-
-  cardShadow: {
-    shadowColor: "#000",
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 10,
   },
 
   card: {
@@ -308,9 +325,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  optionsContainer: {
-    gap: 12,
-  },
+  optionsContainer: { gap: 12 },
 
   option: {
     backgroundColor: "#2563EB",
@@ -325,13 +340,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  correct: {
-    backgroundColor: "#16A34A",
-  },
-
-  wrong: {
-    backgroundColor: "#DC2626",
-  },
+  correct: { backgroundColor: "#16A34A" },
+  wrong: { backgroundColor: "#DC2626" },
 
   containerCenter: {
     flex: 1,
