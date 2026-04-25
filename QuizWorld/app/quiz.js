@@ -31,13 +31,8 @@ const shuffleArray = (array) => {
   return arr;
 };
 
-const interstitial = InterstitialAd.createForAdRequest(
-  "ca-app-pub-5350081816144613/1045376590"
-);
-
-const rewarded = RewardedAd.createForAdRequest(
-  "ca-app-pub-5350081816144613/1045376590"
-);
+const interstitial = InterstitialAd.createForAdRequest("ca-app-pub-5350081816144613/1045376590");
+const rewarded = RewardedAd.createForAdRequest("ca-app-pub-5350081816144613/1045376590");
 
 export default function Quiz() {
   const router = useRouter();
@@ -54,21 +49,22 @@ export default function Quiz() {
   const [streak, setStreak] = useState(0);
 
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const timerRef = useRef(null);
 
   const current = QUESTIONS[index];
 
-  // 🔄 shuffle
+  // 🔀 shuffle
   useEffect(() => {
     setShuffledOptions(shuffleArray(current.options));
   }, [index]);
 
-  // 🎞️ animation barre
+  // 📊 progression anim
   useEffect(() => {
-    const progress = (index + 1) / QUESTIONS.length;
-
     Animated.timing(progressAnim, {
-      toValue: progress,
-      duration: 400,
+      toValue: (index + 1) / QUESTIONS.length,
+      duration: 300,
       useNativeDriver: false,
     }).start();
   }, [index]);
@@ -85,8 +81,10 @@ export default function Quiz() {
     } catch {}
   };
 
-  // ⏱ TIMER
+  // ⏱ TIMER SAFE
   useEffect(() => {
+    if (gameOver) return;
+
     if (time === 0) {
       loseLife();
       return;
@@ -94,24 +92,32 @@ export default function Quiz() {
 
     if (time <= 5) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      Animated.sequence([
+        Animated.timing(scaleAnim, { toValue: 1.2, duration: 100, useNativeDriver: true }),
+        Animated.timing(scaleAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
+      ]).start();
     }
 
-    const timer = setTimeout(() => setTime(time - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [time]);
+    timerRef.current = setTimeout(() => setTime((t) => t - 1), 1000);
 
-  // 📢 ADS
+    return () => clearTimeout(timerRef.current);
+  }, [time, gameOver]);
+
+  // 📢 LOAD ADS
   useEffect(() => {
     interstitial.load();
     rewarded.load();
   }, []);
 
   const loseLife = async () => {
+    if (gameOver) return;
+
     await playSound("wrong");
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
-    setStreak(0);
     setCombo(1);
+    setStreak(0);
 
     if (hearts - 1 <= 0) {
       setHearts(0);
@@ -123,6 +129,8 @@ export default function Quiz() {
   };
 
   const nextQuestion = () => {
+    clearTimeout(timerRef.current);
+
     if (index + 1 < QUESTIONS.length) {
       setIndex((i) => i + 1);
       setSelected(null);
@@ -137,19 +145,17 @@ export default function Quiz() {
       if (Math.random() < 0.5) interstitial.show();
     } catch {}
 
-    try {
-      const best = await AsyncStorage.getItem("BEST_SCORE");
-      const games = await AsyncStorage.getItem("GAMES_PLAYED");
+    const best = await AsyncStorage.getItem("BEST_SCORE");
+    const games = await AsyncStorage.getItem("GAMES_PLAYED");
 
-      const newBest =
-        !best || money > parseInt(best) ? money : parseInt(best);
+    const newBest =
+      !best || money > parseInt(best) ? money : parseInt(best);
 
-      await AsyncStorage.setItem("BEST_SCORE", newBest.toString());
-      await AsyncStorage.setItem(
-        "GAMES_PLAYED",
-        ((games ? parseInt(games) : 0) + 1).toString()
-      );
-    } catch {}
+    await AsyncStorage.setItem("BEST_SCORE", newBest.toString());
+    await AsyncStorage.setItem(
+      "GAMES_PLAYED",
+      ((games ? parseInt(games) : 0) + 1).toString()
+    );
 
     router.push({ pathname: "/results", params: { money } });
   };
@@ -175,6 +181,7 @@ export default function Quiz() {
         setCombo(newCombo);
 
         setMoney((m) => m + current.reward * newCombo);
+
         nextQuestion();
       } else {
         loseLife();
@@ -182,11 +189,11 @@ export default function Quiz() {
     }, 400);
   };
 
+  // 🎁 REVIVE SAFE (no leak)
   const revive = () => {
-    const unsubLoaded = rewarded.addAdEventListener(
-      AdEventType.LOADED,
-      () => rewarded.show()
-    );
+    const unsubLoaded = rewarded.addAdEventListener(AdEventType.LOADED, () => {
+      rewarded.show();
+    });
 
     const unsubReward = rewarded.addAdEventListener(
       RewardedAdEventType.EARNED_REWARD,
@@ -201,28 +208,8 @@ export default function Quiz() {
     setTimeout(() => {
       unsubLoaded();
       unsubReward();
-    }, 5000);
+    }, 4000);
   };
-
-  const renderHearts = () =>
-    "❤️".repeat(hearts) + "🖤".repeat(5 - hearts);
-
-  // 💔 GAME OVER
-  if (gameOver) {
-    return (
-      <View style={styles.containerCenter}>
-        <Text style={styles.gameOver}>💔 Plus de vies</Text>
-
-        <TouchableOpacity style={styles.rewardBtn} onPress={revive}>
-          <Text style={styles.btnText}>🎁 Continuer</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.quitBtn} onPress={endGame}>
-          <Text style={styles.btnText}>Quitter</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   const progressWidth = progressAnim.interpolate({
     inputRange: [0, 1],
@@ -231,34 +218,50 @@ export default function Quiz() {
 
   const danger = time <= 5;
 
+  if (gameOver) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.gameOver}>💔 Plus de vies</Text>
+
+        <TouchableOpacity style={styles.btnOrange} onPress={revive}>
+          <Text style={styles.btnText}>🎁 Continuer</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.btnRed} onPress={endGame}>
+          <Text style={styles.btnText}>Quitter</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* HEADER */}
       <View style={styles.header}>
-        <Text style={styles.hearts}>{renderHearts()}</Text>
+        <Text style={styles.hearts}>
+          {"❤️".repeat(hearts) + "🖤".repeat(5 - hearts)}
+        </Text>
 
         <Text style={styles.money}>💰 {money}</Text>
 
-        <View
+        <Animated.View
           style={[
             styles.timerCircle,
             danger && { backgroundColor: "#EF4444" },
+            { transform: [{ scale: scaleAnim }] },
           ]}
         >
           <Text style={styles.timerText}>{time}</Text>
-        </View>
+        </Animated.View>
       </View>
 
       {/* COMBO */}
-      <View style={styles.comboBox}>
-        <Text style={styles.combo}>🔥 x{combo}</Text>
-        <Text style={styles.streak}>Streak: {streak}</Text>
-      </View>
+      <Text style={styles.combo}>🔥 x{combo} | {streak}</Text>
 
       {/* BARRE */}
-      <View style={styles.progressBarContainer}>
+      <View style={styles.progressBar}>
         <Animated.View
-          style={[styles.progressBarFill, { width: progressWidth }]}
+          style={[styles.progressFill, { width: progressWidth }]}
         />
       </View>
 
@@ -268,23 +271,22 @@ export default function Quiz() {
       </View>
 
       {/* OPTIONS */}
-      <View style={styles.optionsContainer}>
-        {shuffledOptions.map((opt) => (
-          <TouchableOpacity
-            key={opt}
-            onPress={() => handleAnswer(opt)}
-            style={[
-              styles.option,
-              selected === opt &&
-                (opt === current.answer
-                  ? styles.correct
-                  : styles.wrong),
-            ]}
-          >
-            <Text style={styles.optionText}>{opt}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {shuffledOptions.map((opt) => (
+        <TouchableOpacity
+          key={opt}
+          activeOpacity={0.8}
+          onPress={() => handleAnswer(opt)}
+          style={[
+            styles.option,
+            selected === opt &&
+              (opt === current.answer
+                ? styles.correct
+                : styles.wrong),
+          ]}
+        >
+          <Text style={styles.optionText}>{opt}</Text>
+        </TouchableOpacity>
+      ))}
 
       <BannerAd
         unitId="ca-app-pub-5350081816144613/9386901047"
@@ -295,12 +297,7 @@ export default function Quiz() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0A0F2C",
-    padding: 15,
-    justifyContent: "space-between",
-  },
+  container: { flex: 1, backgroundColor: "#0A0F2C", padding: 15 },
 
   header: {
     flexDirection: "row",
@@ -308,13 +305,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  hearts: { fontSize: 26 },
+  hearts: { fontSize: 24 },
 
-  money: {
-    color: "#FFD700",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
+  money: { color: "#FFD700", fontWeight: "bold" },
 
   timerCircle: {
     width: 45,
@@ -325,97 +318,72 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  timerText: {
-    color: "white",
-    fontWeight: "bold",
-  },
-
-  comboBox: { alignItems: "center" },
+  timerText: { color: "white", fontWeight: "bold" },
 
   combo: {
+    textAlign: "center",
     color: "#F59E0B",
-    fontSize: 22,
-    fontWeight: "bold",
+    marginVertical: 5,
   },
 
-  streak: { color: "#9CA3AF" },
-
-  progressBarContainer: {
-    height: 10,
+  progressBar: {
+    height: 8,
     backgroundColor: "#1F2937",
     borderRadius: 10,
     overflow: "hidden",
   },
 
-  progressBarFill: {
+  progressFill: {
     height: "100%",
     backgroundColor: "#22C55E",
   },
 
   card: {
     backgroundColor: "#1E3A8A",
-    padding: 25,
-    borderRadius: 25,
+    padding: 20,
+    borderRadius: 20,
+    marginVertical: 10,
   },
 
   question: {
     color: "white",
-    fontSize: 20,
     textAlign: "center",
-    fontWeight: "bold",
+    fontSize: 18,
   },
-
-  optionsContainer: { gap: 12 },
 
   option: {
     backgroundColor: "#2563EB",
-    padding: 18,
-    borderRadius: 20,
-    alignItems: "center",
+    padding: 15,
+    borderRadius: 15,
+    marginVertical: 5,
   },
 
-  optionText: {
-    color: "white",
-    fontSize: 17,
-    fontWeight: "600",
-  },
+  optionText: { color: "white", textAlign: "center" },
 
-  correct: { backgroundColor: "#16A34A" },
-  wrong: { backgroundColor: "#DC2626" },
+  correct: { backgroundColor: "green" },
+  wrong: { backgroundColor: "red" },
 
-  containerCenter: {
+  center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    gap: 20,
-    backgroundColor: "#0A0F2C",
   },
 
-  gameOver: {
-    color: "white",
-    fontSize: 28,
-    fontWeight: "bold",
-  },
+  gameOver: { color: "white", fontSize: 24 },
 
-  rewardBtn: {
+  btnOrange: {
     backgroundColor: "#F59E0B",
-    padding: 18,
+    padding: 15,
+    marginTop: 10,
     borderRadius: 20,
-    width: 240,
-    alignItems: "center",
   },
 
-  quitBtn: {
+  btnRed: {
     backgroundColor: "#EF4444",
-    padding: 18,
+    padding: 15,
+    marginTop: 10,
     borderRadius: 20,
-    width: 240,
-    alignItems: "center",
   },
 
-  btnText: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
+  btnText: { color: "white" },
 });
