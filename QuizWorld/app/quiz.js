@@ -11,8 +11,10 @@ import {
   InterstitialAd,
   RewardedAd,
   RewardedAdEventType,
+  AdEventType,
 } from "react-native-google-mobile-ads";
 
+// 🔀 Shuffle
 const shuffleArray = (array) => {
   const arr = [...array];
   for (let i = arr.length - 1; i > 0; i--) {
@@ -47,6 +49,7 @@ export default function Quiz() {
     setShuffledOptions(shuffleArray(current.options));
   }, [index]);
 
+  // 🔊 SOUND
   const playSound = async (type) => {
     try {
       const { sound } = await Audio.Sound.createAsync(
@@ -58,15 +61,18 @@ export default function Quiz() {
     } catch {}
   };
 
+  // ⏱ TIMER
   useEffect(() => {
     if (time === 0) {
       loseLife();
       return;
     }
+
     const timer = setTimeout(() => setTime(time - 1), 1000);
     return () => clearTimeout(timer);
   }, [time]);
 
+  // 📢 LOAD ADS
   useEffect(() => {
     interstitial.load();
     rewarded.load();
@@ -96,7 +102,7 @@ export default function Quiz() {
 
   const endGame = async () => {
     try {
-      interstitial.show();
+      if (Math.random() < 0.5) interstitial.show();
     } catch {}
 
     try {
@@ -129,10 +135,18 @@ export default function Quiz() {
       } else {
         loseLife();
       }
-    }, 700);
+    }, 600);
   };
 
+  // 🎁 REVIVE SAFE
   const revive = () => {
+    rewarded.addAdEventListener(
+      AdEventType.LOADED,
+      () => {
+        rewarded.show();
+      }
+    );
+
     rewarded.addAdEventListener(
       RewardedAdEventType.EARNED_REWARD,
       () => {
@@ -142,15 +156,15 @@ export default function Quiz() {
     );
 
     rewarded.load();
-    rewarded.show();
   };
 
   const renderHearts = () =>
     "❤️".repeat(hearts) + "🖤".repeat(5 - hearts);
 
+  // 💔 GAME OVER UI
   if (gameOver) {
     return (
-      <View style={styles.container}>
+      <View style={styles.containerCenter}>
         <Text style={styles.gameOver}>💔 Plus de vies</Text>
 
         <TouchableOpacity style={styles.rewardBtn} onPress={revive}>
@@ -166,30 +180,38 @@ export default function Quiz() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.hearts}>{renderHearts()}</Text>
-      <Text style={styles.money}>💰 ${money}</Text>
-      <Text style={styles.timer}>⏱ {time}s</Text>
+      {/* HEADER */}
+      <View style={styles.top}>
+        <Text style={styles.hearts}>{renderHearts()}</Text>
+        <Text style={styles.money}>💰 ${money}</Text>
+        <Text style={styles.timer}>⏱ {time}s</Text>
+      </View>
 
+      {/* QUESTION */}
       <View style={styles.card}>
         <Text style={styles.question}>{current.question}</Text>
       </View>
 
-      {shuffledOptions.map((opt) => (
-        <TouchableOpacity
-          key={opt}
-          onPress={() => handleAnswer(opt)}
-          style={[
-            styles.option,
-            selected === opt &&
-              (opt === current.answer
-                ? styles.correct
-                : styles.wrong),
-          ]}
-        >
-          <Text style={styles.optionText}>{opt}</Text>
-        </TouchableOpacity>
-      ))}
+      {/* OPTIONS */}
+      <View style={styles.optionsContainer}>
+        {shuffledOptions.map((opt) => (
+          <TouchableOpacity
+            key={opt}
+            onPress={() => handleAnswer(opt)}
+            style={[
+              styles.option,
+              selected === opt &&
+                (opt === current.answer
+                  ? styles.correct
+                  : styles.wrong),
+            ]}
+          >
+            <Text style={styles.optionText}>{opt}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
+      {/* PUB */}
       <BannerAd
         unitId="ca-app-pub-5350081816144613/9386901047"
         size={BannerAdSize.BANNER}
@@ -199,18 +221,104 @@ export default function Quiz() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#0A0F2C" },
-  hearts: { fontSize: 24, textAlign: "center" },
-  money: { color: "#FFD700", fontSize: 22, textAlign: "center" },
-  timer: { color: "white", textAlign: "center" },
-  card: { backgroundColor: "#1E3A8A", padding: 25, borderRadius: 25 },
-  question: { color: "white", textAlign: "center" },
-  option: { backgroundColor: "#2563EB", padding: 15, borderRadius: 25, margin: 5 },
-  optionText: { color: "white", textAlign: "center" },
-  correct: { backgroundColor: "green" },
-  wrong: { backgroundColor: "red" },
-  gameOver: { color: "white", fontSize: 24, textAlign: "center" },
-  rewardBtn: { backgroundColor: "#F59E0B", padding: 15, borderRadius: 20 },
-  quitBtn: { backgroundColor: "#EF4444", padding: 15, borderRadius: 20 },
-  btnText: { color: "white", textAlign: "center" },
+  container: {
+    flex: 1,
+    padding: 15,
+    backgroundColor: "#0A0F2C",
+    justifyContent: "space-between",
+  },
+
+  containerCenter: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 20,
+    backgroundColor: "#0A0F2C",
+  },
+
+  top: {
+    alignItems: "center",
+    gap: 5,
+  },
+
+  hearts: {
+    fontSize: 28,
+  },
+
+  money: {
+    color: "#FFD700",
+    fontSize: 26,
+    fontWeight: "bold",
+  },
+
+  timer: {
+    color: "white",
+    fontSize: 18,
+  },
+
+  card: {
+    backgroundColor: "#1E3A8A",
+    padding: 25,
+    borderRadius: 25,
+  },
+
+  question: {
+    color: "white",
+    fontSize: 20,
+    textAlign: "center",
+    fontWeight: "bold",
+  },
+
+  optionsContainer: {
+    gap: 10,
+  },
+
+  option: {
+    backgroundColor: "#2563EB",
+    padding: 18,
+    borderRadius: 20,
+  },
+
+  optionText: {
+    color: "white",
+    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+
+  correct: {
+    backgroundColor: "#16A34A",
+  },
+
+  wrong: {
+    backgroundColor: "#DC2626",
+  },
+
+  gameOver: {
+    color: "white",
+    fontSize: 28,
+    marginBottom: 20,
+  },
+
+  rewardBtn: {
+    backgroundColor: "#F59E0B",
+    padding: 18,
+    borderRadius: 20,
+    width: 220,
+    alignItems: "center",
+  },
+
+  quitBtn: {
+    backgroundColor: "#EF4444",
+    padding: 18,
+    borderRadius: 20,
+    width: 220,
+    alignItems: "center",
+  },
+
+  btnText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
 });
