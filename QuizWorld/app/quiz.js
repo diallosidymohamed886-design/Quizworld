@@ -135,19 +135,19 @@ export default function Quiz() {
       } else {
         loseLife();
       }
-    }, 600);
+    }, 500);
   };
 
-  // 🎁 REVIVE SAFE
+  // 🎁 REVIVE SAFE (fix crash + memory leak)
   const revive = () => {
-    rewarded.addAdEventListener(
+    const unsubscribeLoaded = rewarded.addAdEventListener(
       AdEventType.LOADED,
       () => {
         rewarded.show();
       }
     );
 
-    rewarded.addAdEventListener(
+    const unsubscribeReward = rewarded.addAdEventListener(
       RewardedAdEventType.EARNED_REWARD,
       () => {
         setHearts(5);
@@ -156,12 +156,18 @@ export default function Quiz() {
     );
 
     rewarded.load();
+
+    // 🔥 nettoyage listeners
+    setTimeout(() => {
+      unsubscribeLoaded();
+      unsubscribeReward();
+    }, 5000);
   };
 
   const renderHearts = () =>
     "❤️".repeat(hearts) + "🖤".repeat(5 - hearts);
 
-  // 💔 GAME OVER UI
+  // 💔 GAME OVER
   if (gameOver) {
     return (
       <View style={styles.containerCenter}>
@@ -180,23 +186,37 @@ export default function Quiz() {
 
   return (
     <View style={styles.container}>
-      {/* HEADER */}
-      <View style={styles.top}>
+      {/* 🔝 HEADER */}
+      <View style={styles.header}>
         <Text style={styles.hearts}>{renderHearts()}</Text>
-        <Text style={styles.money}>💰 ${money}</Text>
-        <Text style={styles.timer}>⏱ {time}s</Text>
+
+        <View style={styles.scoreBox}>
+          <Text style={styles.money}>${money}</Text>
+        </View>
+
+        <View style={styles.timerBox}>
+          <Text style={styles.timer}>{time}s</Text>
+        </View>
       </View>
 
-      {/* QUESTION */}
-      <View style={styles.card}>
-        <Text style={styles.question}>{current.question}</Text>
+      {/* 📊 PROGRESSION */}
+      <Text style={styles.progress}>
+        Question {index + 1}/{QUESTIONS.length}
+      </Text>
+
+      {/* 💎 QUESTION */}
+      <View style={styles.cardShadow}>
+        <View style={styles.card}>
+          <Text style={styles.question}>{current.question}</Text>
+        </View>
       </View>
 
-      {/* OPTIONS */}
+      {/* 🎮 OPTIONS */}
       <View style={styles.optionsContainer}>
         {shuffledOptions.map((opt) => (
           <TouchableOpacity
             key={opt}
+            activeOpacity={0.8}
             onPress={() => handleAnswer(opt)}
             style={[
               styles.option,
@@ -211,7 +231,7 @@ export default function Quiz() {
         ))}
       </View>
 
-      {/* PUB */}
+      {/* 📢 PUB */}
       <BannerAd
         unitId="ca-app-pub-5350081816144613/9386901047"
         size={BannerAdSize.BANNER}
@@ -223,37 +243,56 @@ export default function Quiz() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 15,
     backgroundColor: "#0A0F2C",
+    padding: 15,
     justifyContent: "space-between",
   },
 
-  containerCenter: {
-    flex: 1,
-    justifyContent: "center",
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: 20,
-    backgroundColor: "#0A0F2C",
-  },
-
-  top: {
-    alignItems: "center",
-    gap: 5,
   },
 
   hearts: {
-    fontSize: 28,
+    fontSize: 26,
+  },
+
+  scoreBox: {
+    backgroundColor: "#111827",
+    paddingHorizontal: 15,
+    paddingVertical: 6,
+    borderRadius: 15,
   },
 
   money: {
     color: "#FFD700",
-    fontSize: 26,
+    fontSize: 18,
     fontWeight: "bold",
+  },
+
+  timerBox: {
+    backgroundColor: "#1E3A8A",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
   },
 
   timer: {
     color: "white",
-    fontSize: 18,
+    fontWeight: "bold",
+  },
+
+  progress: {
+    color: "#9CA3AF",
+    textAlign: "center",
+  },
+
+  cardShadow: {
+    shadowColor: "#000",
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
   },
 
   card: {
@@ -270,20 +309,20 @@ const styles = StyleSheet.create({
   },
 
   optionsContainer: {
-    gap: 10,
+    gap: 12,
   },
 
   option: {
     backgroundColor: "#2563EB",
     padding: 18,
     borderRadius: 20,
+    alignItems: "center",
   },
 
   optionText: {
     color: "white",
-    textAlign: "center",
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 17,
+    fontWeight: "600",
   },
 
   correct: {
@@ -294,17 +333,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#DC2626",
   },
 
+  containerCenter: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 20,
+    backgroundColor: "#0A0F2C",
+  },
+
   gameOver: {
     color: "white",
     fontSize: 28,
-    marginBottom: 20,
+    fontWeight: "bold",
   },
 
   rewardBtn: {
     backgroundColor: "#F59E0B",
     padding: 18,
     borderRadius: 20,
-    width: 220,
+    width: 240,
     alignItems: "center",
   },
 
@@ -312,7 +359,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#EF4444",
     padding: 18,
     borderRadius: 20,
-    width: 220,
+    width: 240,
     alignItems: "center",
   },
 
