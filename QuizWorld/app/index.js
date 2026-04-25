@@ -12,12 +12,11 @@ import {
   AdEventType,
 } from "react-native-google-mobile-ads";
 
-// 💥 Interstitial
+// 💥 PUB
 const interstitial = InterstitialAd.createForAdRequest(
   "ca-app-pub-5350081816144613/1045376590"
 );
 
-// 🎁 Rewarded
 const rewarded = RewardedAd.createForAdRequest(
   "ca-app-pub-5350081816144613/1045376590"
 );
@@ -27,30 +26,33 @@ export default function Home() {
 
   const [bestScore, setBestScore] = useState(0);
   const [gamesPlayed, setGamesPlayed] = useState(0);
+  const [streak, setStreak] = useState(0);
 
-  // 🔥 LOAD STATS
+  // 🔥 LOAD DATA
   useEffect(() => {
-    loadStats();
+    loadData();
   }, []);
 
-  const loadStats = async () => {
+  const loadData = async () => {
     try {
       const best = await AsyncStorage.getItem("BEST_SCORE");
       const games = await AsyncStorage.getItem("GAMES_PLAYED");
+      const streakData = await AsyncStorage.getItem("STREAK");
 
       setBestScore(best ? parseInt(best) : 0);
       setGamesPlayed(games ? parseInt(games) : 0);
+      setStreak(streakData ? parseInt(streakData) : 0);
     } catch {}
   };
 
-  // 💥 PUB intelligente
+  // 🔥 INTERSTITIAL (safe)
   useEffect(() => {
     interstitial.load();
 
-    const unsubscribe = interstitial.addAdEventListener(
+    const unsub = interstitial.addAdEventListener(
       AdEventType.LOADED,
       () => {
-        if (Math.random() < 0.3) {
+        if (Math.random() < 0.25) {
           try {
             interstitial.show();
           } catch {}
@@ -58,28 +60,39 @@ export default function Home() {
       }
     );
 
-    return unsubscribe;
+    return unsub;
   }, []);
 
-  // 🎁 BONUS JOURNALIER
-  const getDailyBonus = () => {
+  // 🎁 COFFRE QUOTIDIEN
+  const openChest = () => {
     rewarded.addAdEventListener(
       RewardedAdEventType.EARNED_REWARD,
       async () => {
-        const bonus = 200;
+        const reward = 300;
 
-        const best = await AsyncStorage.getItem("BEST_SCORE");
         const newBest =
-          !best || bonus > parseInt(best) ? bonus : parseInt(best);
+          reward > bestScore ? reward : bestScore;
 
         await AsyncStorage.setItem("BEST_SCORE", newBest.toString());
 
-        loadStats();
+        // 🔥 STREAK +1
+        const newStreak = streak + 1;
+        setStreak(newStreak);
+        await AsyncStorage.setItem("STREAK", newStreak.toString());
+
+        loadData();
       }
     );
 
     rewarded.load();
     rewarded.show();
+  };
+
+  // 🏆 RANG
+  const getRank = () => {
+    if (bestScore < 500) return "Débutant";
+    if (bestScore < 1500) return "Pro";
+    return "Légende";
   };
 
   return (
@@ -93,46 +106,44 @@ export default function Home() {
         </Text>
       </View>
 
-      {/* 🏆 STATS */}
+      {/* 📊 STATS */}
       <View style={styles.statsBox}>
-        <Text style={styles.stat}>🏆 Meilleur : {bestScore}</Text>
-        <Text style={styles.stat}>🎮 Parties : {gamesPlayed}</Text>
+        <Text style={styles.stat}>🏆 {bestScore}</Text>
+        <Text style={styles.stat}>🎮 {gamesPlayed} parties</Text>
+        <Text style={styles.stat}>🔥 Streak: {streak}</Text>
+        <Text style={styles.rank}>👑 {getRank()}</Text>
       </View>
 
       {/* 🎮 PLAY */}
       <TouchableOpacity
-        activeOpacity={0.8}
+        activeOpacity={0.85}
         style={styles.playButton}
         onPress={() => router.push("/quiz")}
       >
         <Text style={styles.playText}>JOUER</Text>
       </TouchableOpacity>
 
-      {/* 🎁 BONUS */}
+      {/* 🎁 COFFRE */}
       <TouchableOpacity
-        activeOpacity={0.8}
-        style={styles.bonusButton}
-        onPress={getDailyBonus}
+        activeOpacity={0.85}
+        style={styles.chest}
+        onPress={openChest}
       >
-        <Text style={styles.bonusText}>
-          🎁 Récompense du jour
-        </Text>
+        <Text style={styles.chestText}>🎁 Coffre quotidien</Text>
       </TouchableOpacity>
 
-      {/* 📊 INFOS */}
+      {/* 💡 INFOS */}
       <View style={styles.infoBox}>
-        <Text style={styles.infoText}>🔥 Combo & Streak</Text>
-        <Text style={styles.infoText}>🧠 100+ questions</Text>
-        <Text style={styles.infoText}>🏆 Défie ton record</Text>
+        <Text style={styles.info}>🔥 Combo & multiplicateur</Text>
+        <Text style={styles.info}>🧠 100+ questions</Text>
+        <Text style={styles.info}>🏆 Deviens une légende</Text>
       </View>
 
       {/* 📢 PUB */}
-      <View style={styles.banner}>
-        <BannerAd
-          unitId="ca-app-pub-5350081816144613/9386901047"
-          size={BannerAdSize.BANNER}
-        />
-      </View>
+      <BannerAd
+        unitId="ca-app-pub-5350081816144613/9386901047"
+        size={BannerAdSize.BANNER}
+      />
     </View>
   );
 }
@@ -143,7 +154,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#0A0F2C",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 25,
+    padding: 20,
   },
 
   header: {
@@ -172,11 +183,17 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     width: "100%",
     alignItems: "center",
+    gap: 5,
   },
 
   stat: {
     color: "#E5E7EB",
     fontSize: 16,
+  },
+
+  rank: {
+    color: "#FFD700",
+    fontWeight: "bold",
   },
 
   playButton: {
@@ -193,14 +210,14 @@ const styles = StyleSheet.create({
     color: "#000",
   },
 
-  bonusButton: {
+  chest: {
     backgroundColor: "#F59E0B",
-    paddingVertical: 18,
+    paddingVertical: 16,
     paddingHorizontal: 50,
     borderRadius: 25,
   },
 
-  bonusText: {
+  chestText: {
     color: "white",
     fontWeight: "bold",
     fontSize: 16,
@@ -211,11 +228,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
 
-  infoText: {
+  info: {
     color: "#E5E7EB",
-  },
-
-  banner: {
-    marginBottom: 10,
+    fontSize: 14,
   },
 });
