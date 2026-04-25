@@ -49,6 +49,10 @@ export default function Quiz() {
   const [combo, setCombo] = useState(1);
   const [streak, setStreak] = useState(0);
 
+  // 🔥 XP SYSTEM
+  const [xp, setXp] = useState(0);
+  const [level, setLevel] = useState(1);
+
   const progressAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef(null);
@@ -138,6 +142,33 @@ export default function Quiz() {
     }
   };
 
+  // 🧠 XP CALCULATION
+  const updateXP = async () => {
+    try {
+      const xpData = await AsyncStorage.getItem("XP");
+      const levelData = await AsyncStorage.getItem("LEVEL");
+
+      let currentXP = xpData ? parseInt(xpData) : 0;
+      let currentLevel = levelData ? parseInt(levelData) : 1;
+
+      let gainedXP = Math.floor(money / 10);
+
+      let newXP = currentXP + gainedXP;
+      let newLevel = currentLevel;
+
+      while (newXP >= newLevel * 100) {
+        newXP -= newLevel * 100;
+        newLevel++;
+      }
+
+      await AsyncStorage.setItem("XP", newXP.toString());
+      await AsyncStorage.setItem("LEVEL", newLevel.toString());
+
+      setXp(newXP);
+      setLevel(newLevel);
+    } catch {}
+  };
+
   const endGame = async () => {
     clearTimeout(timerRef.current);
 
@@ -158,6 +189,8 @@ export default function Quiz() {
         ((games ? parseInt(games) : 0) + 1).toString()
       );
     } catch {}
+
+    await updateXP(); // 🔥 XP ajouté ici
 
     router.replace({ pathname: "/results", params: { money } });
   };
@@ -191,7 +224,7 @@ export default function Quiz() {
     }, 400);
   };
 
-  // ✅ CONTINUER SANS PUB (UX PRO)
+  // ✅ CONTINUER SANS PUB
   const revive = () => {
     setHearts(3);
     setGameOver(false);
@@ -205,37 +238,23 @@ export default function Quiz() {
 
   const danger = time <= 5;
 
-  // 💔 GAME OVER PRO DESIGN
+  // 💔 GAME OVER
   if (gameOver) {
     return (
       <View style={styles.overlay}>
         <View style={styles.gameOverCard}>
           <Text style={styles.gameOverIcon}>💔</Text>
-
-          <Text style={styles.gameOverTitle}>
-            Plus de vies
-          </Text>
-
+          <Text style={styles.gameOverTitle}>Plus de vies</Text>
           <Text style={styles.gameOverSub}>
             Continue ou termine ta partie
           </Text>
 
-          <TouchableOpacity
-            style={styles.btnContinue}
-            onPress={revive}
-          >
-            <Text style={styles.btnContinueText}>
-              Continuer
-            </Text>
+          <TouchableOpacity style={styles.btnContinue} onPress={revive}>
+            <Text style={styles.btnContinueText}>Continuer</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.btnQuit}
-            onPress={endGame}
-          >
-            <Text style={styles.btnQuitText}>
-              Quitter
-            </Text>
+          <TouchableOpacity style={styles.btnQuit} onPress={endGame}>
+            <Text style={styles.btnQuitText}>Quitter</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -244,7 +263,6 @@ export default function Quiz() {
 
   return (
     <View style={styles.container}>
-      {/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.hearts}>
           {"❤️".repeat(hearts) + "🖤".repeat(5 - hearts)}
@@ -263,22 +281,16 @@ export default function Quiz() {
         </Animated.View>
       </View>
 
-      {/* COMBO */}
       <Text style={styles.combo}>🔥 x{combo} | {streak}</Text>
 
-      {/* BARRE */}
       <View style={styles.progressBar}>
-        <Animated.View
-          style={[styles.progressFill, { width: progressWidth }]}
-        />
+        <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
       </View>
 
-      {/* QUESTION */}
       <View style={styles.card}>
         <Text style={styles.question}>{current.question}</Text>
       </View>
 
-      {/* OPTIONS */}
       {shuffledOptions.map((opt) => (
         <TouchableOpacity
           key={opt}
@@ -286,9 +298,7 @@ export default function Quiz() {
           style={[
             styles.option,
             selected === opt &&
-              (opt === current.answer
-                ? styles.correct
-                : styles.wrong),
+              (opt === current.answer ? styles.correct : styles.wrong),
           ]}
         >
           <Text style={styles.optionText}>{opt}</Text>
@@ -379,7 +389,6 @@ const styles = StyleSheet.create({
   correct: { backgroundColor: "#16A34A" },
   wrong: { backgroundColor: "#DC2626" },
 
-  // 🎨 GAME OVER
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.85)",
