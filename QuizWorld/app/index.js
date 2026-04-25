@@ -19,10 +19,23 @@ import {
 
 const { width } = Dimensions.get("window");
 
-// 💥 PUB (SAFE)
+// 💥 PUB SAFE
 const interstitial = InterstitialAd.createForAdRequest(
   "ca-app-pub-5350081816144613/1045376590"
 );
+
+// 🧠 JOUEURS IA (OPTIMISÉS)
+const AI_PLAYERS = [
+  { name: "🔥 AlphaX", score: 5000 },
+  { name: "👑 KingQuiz", score: 4200 },
+  { name: "⚡ BrainMax", score: 3500 },
+  { name: "🧠 GeniusPro", score: 2800 },
+  { name: "🚀 SpeedMind", score: 2200 },
+  { name: "💎 ElitePlayer", score: 1700 },
+  { name: "🎯 SharpIQ", score: 1300 },
+  { name: "📚 SmartOne", score: 900 },
+  { name: "🎮 RookieX", score: 500 },
+];
 
 export default function Home() {
   const router = useRouter();
@@ -42,12 +55,22 @@ export default function Home() {
       const best = await AsyncStorage.getItem("BEST_SCORE");
       const games = await AsyncStorage.getItem("GAMES_PLAYED");
       const streakData = await AsyncStorage.getItem("STREAK");
-      const board = await AsyncStorage.getItem("LEADERBOARD");
 
-      setBestScore(best ? parseInt(best) : 0);
+      const userScore = best ? parseInt(best) : 0;
+
+      setBestScore(userScore);
       setGamesPlayed(games ? parseInt(games) : 0);
       setStreak(streakData ? parseInt(streakData) : 0);
-      setLeaderboard(board ? JSON.parse(board) : []);
+
+      // 🧠 CREATION CLASSEMENT HYBRIDE
+      const merged = [
+        ...AI_PLAYERS,
+        { name: "🟢 TOI", score: userScore },
+      ];
+
+      const sorted = merged.sort((a, b) => b.score - a.score);
+
+      setLeaderboard(sorted);
     } catch {}
   };
 
@@ -78,16 +101,16 @@ export default function Home() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* 🌍 HEADER */}
+      {/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.logo}>🌍</Text>
         <Text style={styles.title}>QuizWorld</Text>
         <Text style={styles.subtitle}>
-          Jusqu’où peux-tu aller ?
+          Deviens le meilleur joueur
         </Text>
       </View>
 
-      {/* 📊 STATS */}
+      {/* STATS */}
       <View style={styles.statsBox}>
         <Text style={styles.stat}>🏆 {bestScore}</Text>
         <Text style={styles.stat}>🎮 {gamesPlayed} parties</Text>
@@ -95,7 +118,7 @@ export default function Home() {
         <Text style={styles.rank}>👑 {getRank()}</Text>
       </View>
 
-      {/* 🎮 PLAY */}
+      {/* PLAY */}
       <TouchableOpacity
         activeOpacity={0.85}
         style={styles.playButton}
@@ -106,28 +129,33 @@ export default function Home() {
 
       {/* 🏆 CLASSEMENT */}
       <View style={styles.leaderboardBox}>
-        <Text style={styles.leaderboardTitle}>🏆 Top joueurs</Text>
+        <Text style={styles.leaderboardTitle}>
+          🏆 Classement mondial
+        </Text>
 
-        {leaderboard.length === 0 ? (
-          <Text style={styles.empty}>Aucun score encore</Text>
-        ) : (
-          leaderboard.slice(0, 5).map((item, index) => (
-            <View key={index} style={styles.row}>
-              <Text style={styles.rankNum}>#{index + 1}</Text>
-              <Text style={styles.score}>{item.score}</Text>
-            </View>
-          ))
-        )}
+        {leaderboard.slice(0, 10).map((player, index) => (
+          <View
+            key={index}
+            style={[
+              styles.row,
+              player.name === "🟢 TOI" && styles.youRow,
+            ]}
+          >
+            <Text style={styles.rankNum}>#{index + 1}</Text>
+            <Text style={styles.playerName}>{player.name}</Text>
+            <Text style={styles.score}>{player.score}</Text>
+          </View>
+        ))}
       </View>
 
-      {/* 💡 INFOS */}
+      {/* INFOS */}
       <View style={styles.infoBox}>
-        <Text style={styles.info}>🔥 Combo & multiplicateur</Text>
-        <Text style={styles.info}>🧠 100+ questions</Text>
-        <Text style={styles.info}>🏆 Monte dans le classement</Text>
+        <Text style={styles.info}>🔥 Monte dans le classement</Text>
+        <Text style={styles.info}>🧠 Bats les meilleurs</Text>
+        <Text style={styles.info}>👑 Deviens numéro 1</Text>
       </View>
 
-      {/* 📢 PUB */}
+      {/* PUB */}
       <BannerAd
         unitId="ca-app-pub-5350081816144613/9386901047"
         size={BannerAdSize.BANNER}
@@ -136,7 +164,7 @@ export default function Home() {
   );
 }
 
-// 🎨 DESIGN PRO MAX
+// 🎨 DESIGN PRO
 const styles = StyleSheet.create({
   container: {
     padding: 20,
@@ -150,9 +178,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  logo: {
-    fontSize: 70,
-  },
+  logo: { fontSize: 70 },
 
   title: {
     fontSize: 42,
@@ -163,8 +189,6 @@ const styles = StyleSheet.create({
   subtitle: {
     color: "#9CA3AF",
     fontSize: 16,
-    textAlign: "center",
-    marginTop: 5,
   },
 
   statsBox: {
@@ -177,15 +201,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
-  stat: {
-    color: "#E5E7EB",
-    fontSize: 18,
-  },
+  stat: { color: "#E5E7EB", fontSize: 18 },
 
   rank: {
     color: "#FFD700",
     fontWeight: "bold",
-    fontSize: 18,
   },
 
   playButton: {
@@ -203,7 +223,6 @@ const styles = StyleSheet.create({
     color: "#000",
   },
 
-  // 🏆 LEADERBOARD
   leaderboardBox: {
     width: "100%",
     backgroundColor: "#111827",
@@ -225,19 +244,19 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
 
-  rankNum: {
-    color: "#9CA3AF",
-    fontSize: 16,
+  youRow: {
+    backgroundColor: "#1E3A8A",
+    borderRadius: 10,
+    paddingHorizontal: 10,
   },
+
+  rankNum: { color: "#9CA3AF" },
+
+  playerName: { color: "white" },
 
   score: {
     color: "#FFD700",
     fontWeight: "bold",
-  },
-
-  empty: {
-    color: "#9CA3AF",
-    textAlign: "center",
   },
 
   infoBox: {
@@ -246,8 +265,5 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  info: {
-    color: "#E5E7EB",
-    fontSize: 16,
-  },
+  info: { color: "#E5E7EB" },
 });
