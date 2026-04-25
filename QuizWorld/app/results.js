@@ -13,24 +13,19 @@ import {
   BannerAd,
   BannerAdSize,
   InterstitialAd,
-  RewardedAd,
   AdEventType,
-  RewardedAdEventType,
 } from "react-native-google-mobile-ads";
 
-// 💥 Interstitial
+// 💥 INTERSTITIAL
 const interstitial = InterstitialAd.createForAdRequest(
   "ca-app-pub-5350081816144613/1045376590"
 );
 
-// 🎁 Rewarded
-const rewarded = RewardedAd.createForAdRequest(
-  "ca-app-pub-5350081816144613/1045376590"
-);
-
 export default function Results() {
-  const { money } = useLocalSearchParams();
+  const params = useLocalSearchParams();
   const router = useRouter();
+
+  const money = parseInt(params.money || "0");
 
   const [message, setMessage] = useState("");
   const [bestScore, setBestScore] = useState(0);
@@ -38,7 +33,7 @@ export default function Results() {
 
   const scaleAnim = useRef(new Animated.Value(0)).current;
 
-  // 🎬 Animation entrée
+  // 🎬 ANIMATION
   useEffect(() => {
     Animated.spring(scaleAnim, {
       toValue: 1,
@@ -47,12 +42,12 @@ export default function Results() {
     }).start();
   }, []);
 
-  // 💥 INTERSTITIAL SAFE (no crash)
+  // 💥 INTERSTITIAL SAFE
   useEffect(() => {
     const unsub = interstitial.addAdEventListener(
       AdEventType.LOADED,
       () => {
-        if (Math.random() < 0.5) {
+        if (Math.random() < 0.4) {
           try {
             interstitial.show();
           } catch {}
@@ -80,7 +75,7 @@ export default function Results() {
     loadStats();
   }, []);
 
-  // 🧠 MESSAGE INTELLIGENT
+  // 🧠 MESSAGE SMART
   useEffect(() => {
     if (money < 200) setMessage("😅 Continue, tu progresses !");
     else if (money < 500) setMessage("🔥 Bon niveau !");
@@ -88,32 +83,6 @@ export default function Results() {
     else if (money < 2000) setMessage("💎 Élites !");
     else setMessage("👑 LÉGENDE VIVANTE !");
   }, [money]);
-
-  // 🎁 BONUS SAFE (no leak)
-  const getBonus = () => {
-    const unsubLoaded = rewarded.addAdEventListener(
-      AdEventType.LOADED,
-      () => {
-        try {
-          rewarded.show();
-        } catch {}
-      }
-    );
-
-    const unsubReward = rewarded.addAdEventListener(
-      RewardedAdEventType.EARNED_REWARD,
-      () => {
-        router.replace("/quiz");
-      }
-    );
-
-    rewarded.load();
-
-    setTimeout(() => {
-      unsubLoaded();
-      unsubReward();
-    }, 4000);
-  };
 
   return (
     <View style={styles.container}>
@@ -125,7 +94,6 @@ export default function Results() {
         ]}
       >
         <Text style={styles.title}>RÉSULTAT</Text>
-
         <Text style={styles.score}>💰 {money}</Text>
       </Animated.View>
 
@@ -145,22 +113,14 @@ export default function Results() {
         </View>
       </View>
 
-      {/* 🔘 ACTIONS */}
+      {/* 🎮 ACTION */}
       <View style={styles.buttons}>
         <TouchableOpacity
-          activeOpacity={0.8}
+          activeOpacity={0.85}
           style={styles.buttonPrimary}
           onPress={() => router.replace("/")}
         >
           <Text style={styles.buttonText}>REJOUER</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.buttonBonus}
-          onPress={getBonus}
-        >
-          <Text style={styles.buttonText}>🎁 BONUS</Text>
         </TouchableOpacity>
       </View>
 
@@ -220,9 +180,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     width: "48%",
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
     elevation: 5,
   },
 
@@ -239,25 +196,15 @@ const styles = StyleSheet.create({
   },
 
   buttons: {
-    gap: 15,
+    marginTop: 10,
   },
 
   buttonPrimary: {
     backgroundColor: "#2563EB",
-    padding: 18,
-    borderRadius: 20,
+    padding: 20,
+    borderRadius: 25,
     alignItems: "center",
-    shadowColor: "#2563EB",
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
     elevation: 6,
-  },
-
-  buttonBonus: {
-    backgroundColor: "#F59E0B",
-    padding: 18,
-    borderRadius: 20,
-    alignItems: "center",
   },
 
   buttonText: {
