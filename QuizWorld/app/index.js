@@ -42,12 +42,12 @@ export default function Home() {
 
     const aiPlayers = [
       { name: "👑 TITAN", score: base + 1200, boss: true },
-      { name: "🔥 Shadow", score: base + 800 },
-      { name: "⚡ Blitz", score: base + 500 },
-      { name: "🧠 Cortex", score: base + 300 },
+      { name: "🔥 Sidy", score: base + 800 },
+      { name: "⚡ Alpha", score: base + 500 },
+      { name: "🧠 Aicha", score: base + 300 },
       { name: "🚀 Nova", score: base + 150 },
-      { name: "💎 Vortex", score: base + 50 },
-      { name: "🎯 Pulse", score: base - 100 },
+      { name: "💎 Kamoudou", score: base + 50 },
+      { name: "🎯 Mariame toure", score: base - 100 },
       { name: "📚 Neo", score: base - 200 },
       { name: "🎮 Rookie", score: base - 400 },
     ];
