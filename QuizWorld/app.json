@@ -4,16 +4,13 @@
     "slug": "QuizWorld",
     "version": "1.0.0",
     "orientation": "portrait",
-
     "icon": "./assets/images/icon.png",
     "scheme": "quizworld",
     "userInterfaceStyle": "automatic",
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sidy0102.quizworld"
     },
-
     "android": {
       "package": "com.sidy0102.quizworld",
       "adaptiveIcon": {
@@ -23,15 +20,12 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       }
     },
-
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-
     "plugins": [
       "expo-router",
-
       [
         "expo-splash-screen",
         {
@@ -43,7 +37,6 @@
           }
         }
       ],
-
       [
         "react-native-google-mobile-ads",
         {
@@ -52,11 +45,9 @@
         }
       ]
     ],
-
     "experiments": {
       "typedRoutes": true
     },
-
     "extra": {
       "router": {},
       "eas": {
