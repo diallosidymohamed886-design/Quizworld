@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Animated,
+  Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { QUESTIONS } from "../constants/questions";
@@ -16,10 +17,9 @@ import {
   BannerAd,
   BannerAdSize,
   InterstitialAd,
-  RewardedAd,
-  RewardedAdEventType,
-  AdEventType,
 } from "react-native-google-mobile-ads";
+
+const { width } = Dimensions.get("window");
 
 // 🔀 Shuffle
 const shuffleArray = (array) => {
@@ -31,8 +31,9 @@ const shuffleArray = (array) => {
   return arr;
 };
 
-const interstitial = InterstitialAd.createForAdRequest("ca-app-pub-5350081816144613/1045376590");
-const rewarded = RewardedAd.createForAdRequest("ca-app-pub-5350081816144613/1045376590");
+const interstitial = InterstitialAd.createForAdRequest(
+  "ca-app-pub-5350081816144613/1045376590"
+);
 
 export default function Quiz() {
   const router = useRouter();
@@ -50,7 +51,6 @@ export default function Quiz() {
 
   const progressAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
-
   const timerRef = useRef(null);
 
   const current = QUESTIONS[index];
@@ -60,7 +60,7 @@ export default function Quiz() {
     setShuffledOptions(shuffleArray(current.options));
   }, [index]);
 
-  // 📊 progression anim
+  // 📊 progress anim
   useEffect(() => {
     Animated.timing(progressAnim, {
       toValue: (index + 1) / QUESTIONS.length,
@@ -68,18 +68,6 @@ export default function Quiz() {
       useNativeDriver: false,
     }).start();
   }, [index]);
-
-  // 🔊 SOUND
-  const playSound = async (type) => {
-    try {
-      const { sound } = await Audio.Sound.createAsync(
-        type === "correct"
-          ? require("../assets/sounds/correct.mp3")
-          : require("../assets/sounds/wrong.mp3")
-      );
-      await sound.playAsync();
-    } catch {}
-  };
 
   // ⏱ TIMER SAFE
   useEffect(() => {
@@ -100,15 +88,25 @@ export default function Quiz() {
     }
 
     timerRef.current = setTimeout(() => setTime((t) => t - 1), 1000);
-
     return () => clearTimeout(timerRef.current);
   }, [time, gameOver]);
 
-  // 📢 LOAD ADS
+  // 📢 ADS
   useEffect(() => {
     interstitial.load();
-    rewarded.load();
   }, []);
+
+  // 🔊 SOUND
+  const playSound = async (type) => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        type === "correct"
+          ? require("../assets/sounds/correct.mp3")
+          : require("../assets/sounds/wrong.mp3")
+      );
+      await sound.playAsync();
+    } catch {}
+  };
 
   const loseLife = async () => {
     if (gameOver) return;
@@ -141,23 +139,27 @@ export default function Quiz() {
   };
 
   const endGame = async () => {
+    clearTimeout(timerRef.current);
+
     try {
       if (Math.random() < 0.5) interstitial.show();
     } catch {}
 
-    const best = await AsyncStorage.getItem("BEST_SCORE");
-    const games = await AsyncStorage.getItem("GAMES_PLAYED");
+    try {
+      const best = await AsyncStorage.getItem("BEST_SCORE");
+      const games = await AsyncStorage.getItem("GAMES_PLAYED");
 
-    const newBest =
-      !best || money > parseInt(best) ? money : parseInt(best);
+      const newBest =
+        !best || money > parseInt(best) ? money : parseInt(best);
 
-    await AsyncStorage.setItem("BEST_SCORE", newBest.toString());
-    await AsyncStorage.setItem(
-      "GAMES_PLAYED",
-      ((games ? parseInt(games) : 0) + 1).toString()
-    );
+      await AsyncStorage.setItem("BEST_SCORE", newBest.toString());
+      await AsyncStorage.setItem(
+        "GAMES_PLAYED",
+        ((games ? parseInt(games) : 0) + 1).toString()
+      );
+    } catch {}
 
-    router.push({ pathname: "/results", params: { money } });
+    router.replace({ pathname: "/results", params: { money } });
   };
 
   const handleAnswer = (option) => {
@@ -189,26 +191,11 @@ export default function Quiz() {
     }, 400);
   };
 
-  // 🎁 REVIVE SAFE (no leak)
+  // ✅ CONTINUER SANS PUB (UX PRO)
   const revive = () => {
-    const unsubLoaded = rewarded.addAdEventListener(AdEventType.LOADED, () => {
-      rewarded.show();
-    });
-
-    const unsubReward = rewarded.addAdEventListener(
-      RewardedAdEventType.EARNED_REWARD,
-      () => {
-        setHearts(5);
-        setGameOver(false);
-      }
-    );
-
-    rewarded.load();
-
-    setTimeout(() => {
-      unsubLoaded();
-      unsubReward();
-    }, 4000);
+    setHearts(3);
+    setGameOver(false);
+    setTime(15);
   };
 
   const progressWidth = progressAnim.interpolate({
@@ -218,18 +205,39 @@ export default function Quiz() {
 
   const danger = time <= 5;
 
+  // 💔 GAME OVER PRO DESIGN
   if (gameOver) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.gameOver}>💔 Plus de vies</Text>
+      <View style={styles.overlay}>
+        <View style={styles.gameOverCard}>
+          <Text style={styles.gameOverIcon}>💔</Text>
 
-        <TouchableOpacity style={styles.btnOrange} onPress={revive}>
-          <Text style={styles.btnText}>🎁 Continuer</Text>
-        </TouchableOpacity>
+          <Text style={styles.gameOverTitle}>
+            Plus de vies
+          </Text>
 
-        <TouchableOpacity style={styles.btnRed} onPress={endGame}>
-          <Text style={styles.btnText}>Quitter</Text>
-        </TouchableOpacity>
+          <Text style={styles.gameOverSub}>
+            Continue ou termine ta partie
+          </Text>
+
+          <TouchableOpacity
+            style={styles.btnContinue}
+            onPress={revive}
+          >
+            <Text style={styles.btnContinueText}>
+              Continuer
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.btnQuit}
+            onPress={endGame}
+          >
+            <Text style={styles.btnQuitText}>
+              Quitter
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -274,7 +282,6 @@ export default function Quiz() {
       {shuffledOptions.map((opt) => (
         <TouchableOpacity
           key={opt}
-          activeOpacity={0.8}
           onPress={() => handleAnswer(opt)}
           style={[
             styles.option,
@@ -305,29 +312,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  hearts: { fontSize: 24 },
+  hearts: { fontSize: 26 },
 
-  money: { color: "#FFD700", fontWeight: "bold" },
+  money: { color: "#FFD700", fontWeight: "bold", fontSize: 18 },
 
   timerCircle: {
-    width: 45,
-    height: 45,
+    width: 50,
+    height: 50,
     borderRadius: 50,
     backgroundColor: "#1E3A8A",
     justifyContent: "center",
     alignItems: "center",
   },
 
-  timerText: { color: "white", fontWeight: "bold" },
+  timerText: { color: "white", fontWeight: "bold", fontSize: 18 },
 
   combo: {
     textAlign: "center",
     color: "#F59E0B",
-    marginVertical: 5,
+    fontSize: 18,
+    marginVertical: 8,
   },
 
   progressBar: {
-    height: 8,
+    height: 10,
     backgroundColor: "#1F2937",
     borderRadius: 10,
     overflow: "hidden",
@@ -340,7 +348,7 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: "#1E3A8A",
-    padding: 20,
+    padding: 25,
     borderRadius: 20,
     marginVertical: 10,
   },
@@ -348,42 +356,84 @@ const styles = StyleSheet.create({
   question: {
     color: "white",
     textAlign: "center",
-    fontSize: 18,
+    fontSize: 20,
+    fontWeight: "bold",
   },
 
   option: {
     backgroundColor: "#2563EB",
-    padding: 15,
-    borderRadius: 15,
-    marginVertical: 5,
+    paddingVertical: 18,
+    borderRadius: 20,
+    marginVertical: 6,
+    width: width * 0.95,
+    alignSelf: "center",
   },
 
-  optionText: { color: "white", textAlign: "center" },
+  optionText: {
+    color: "white",
+    textAlign: "center",
+    fontSize: 17,
+    fontWeight: "600",
+  },
 
-  correct: { backgroundColor: "green" },
-  wrong: { backgroundColor: "red" },
+  correct: { backgroundColor: "#16A34A" },
+  wrong: { backgroundColor: "#DC2626" },
 
-  center: {
+  // 🎨 GAME OVER
+  overlay: {
     flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
     justifyContent: "center",
     alignItems: "center",
   },
 
-  gameOver: { color: "white", fontSize: 24 },
-
-  btnOrange: {
-    backgroundColor: "#F59E0B",
-    padding: 15,
-    marginTop: 10,
-    borderRadius: 20,
+  gameOverCard: {
+    backgroundColor: "#111827",
+    padding: 30,
+    borderRadius: 25,
+    width: "85%",
+    alignItems: "center",
   },
 
-  btnRed: {
+  gameOverIcon: { fontSize: 50 },
+
+  gameOverTitle: {
+    color: "white",
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+
+  gameOverSub: {
+    color: "#9CA3AF",
+    marginBottom: 20,
+  },
+
+  btnContinue: {
+    backgroundColor: "#22C55E",
+    padding: 18,
+    borderRadius: 20,
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+
+  btnContinueText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+
+  btnQuit: {
     backgroundColor: "#EF4444",
-    padding: 15,
-    marginTop: 10,
+    padding: 16,
     borderRadius: 20,
+    width: "100%",
+    alignItems: "center",
   },
 
-  btnText: { color: "white" },
+  btnQuitText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
 });
