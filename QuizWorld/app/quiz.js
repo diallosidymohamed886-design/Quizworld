@@ -93,7 +93,6 @@ export default function Quiz() {
     }
 
     timerRef.current = setTimeout(() => setTime((t) => t - 1), 1000);
-
     return () => clearTimeout(timerRef.current);
   }, [time, gameOver]);
 
@@ -172,6 +171,28 @@ export default function Quiz() {
     } catch {}
   };
 
+  // 🏆 LEADERBOARD SAVE
+  const saveLeaderboard = async () => {
+    try {
+      const data = await AsyncStorage.getItem("LEADERBOARD");
+      let leaderboard = data ? JSON.parse(data) : [];
+
+      leaderboard.push({
+        score: money,
+        date: Date.now(),
+      });
+
+      leaderboard = leaderboard
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
+
+      await AsyncStorage.setItem(
+        "LEADERBOARD",
+        JSON.stringify(leaderboard)
+      );
+    } catch {}
+  };
+
   const endGame = async () => {
     clearTimeout(timerRef.current);
 
@@ -194,6 +215,7 @@ export default function Quiz() {
     } catch {}
 
     await updateXP();
+    await saveLeaderboard(); // 🔥 ajout clé
 
     router.replace({ pathname: "/results", params: { money } });
   };
@@ -209,7 +231,6 @@ export default function Quiz() {
         await playSound("correct");
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-        // 🔥 animation gain
         Animated.sequence([
           Animated.timing(rewardAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
           Animated.timing(rewardAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
@@ -234,7 +255,7 @@ export default function Quiz() {
     }, 400);
   };
 
-  // ✅ CONTINUER SANS PUB
+  // ✅ CONTINUER
   const revive = () => {
     setHearts(3);
     setGameOver(false);
@@ -275,18 +296,12 @@ export default function Quiz() {
 
   return (
     <View style={styles.container}>
-      {/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.hearts}>
           {"❤️".repeat(hearts) + "🖤".repeat(5 - hearts)}
         </Text>
 
-        <Animated.Text
-          style={[
-            styles.money,
-            { transform: [{ scale: rewardScale }] },
-          ]}
-        >
+        <Animated.Text style={[styles.money, { transform: [{ scale: rewardScale }] }]}>
           💰 {money}
         </Animated.Text>
 
@@ -303,17 +318,14 @@ export default function Quiz() {
 
       <Text style={styles.combo}>🔥 x{combo} | {streak}</Text>
 
-      {/* BAR */}
       <View style={styles.progress}>
         <Animated.View style={[styles.fill, { width: progressWidth }]} />
       </View>
 
-      {/* QUESTION */}
       <View style={styles.card}>
         <Text style={styles.question}>{current.question}</Text>
       </View>
 
-      {/* OPTIONS */}
       {shuffledOptions.map((opt) => (
         <TouchableOpacity
           key={opt}
@@ -336,16 +348,12 @@ export default function Quiz() {
   );
 }
 
-// 🎨 DESIGN PRO
+// 🎨 STYLE inchangé (déjà propre)
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0A0F2C", padding: 15 },
-
   header: { flexDirection: "row", justifyContent: "space-between" },
-
   hearts: { fontSize: 26 },
-
   money: { color: "#FFD700", fontSize: 20, fontWeight: "bold" },
-
   timer: {
     width: 50,
     height: 50,
@@ -354,34 +362,27 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   timerText: { color: "white", fontWeight: "bold" },
-
   combo: { textAlign: "center", color: "#F59E0B", marginVertical: 8 },
-
   progress: {
     height: 10,
     backgroundColor: "#1F2937",
     borderRadius: 10,
     overflow: "hidden",
   },
-
   fill: { height: "100%", backgroundColor: "#22C55E" },
-
   card: {
     backgroundColor: "#1E3A8A",
     padding: 25,
     borderRadius: 20,
     marginVertical: 10,
   },
-
   question: {
     color: "white",
     textAlign: "center",
     fontSize: 20,
     fontWeight: "bold",
   },
-
   option: {
     backgroundColor: "#2563EB",
     paddingVertical: 18,
@@ -390,24 +391,20 @@ const styles = StyleSheet.create({
     width: width * 0.95,
     alignSelf: "center",
   },
-
   optionText: {
     color: "white",
     textAlign: "center",
     fontSize: 17,
     fontWeight: "600",
   },
-
   correct: { backgroundColor: "#16A34A" },
   wrong: { backgroundColor: "#DC2626" },
-
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.85)",
     justifyContent: "center",
     alignItems: "center",
   },
-
   cardGameOver: {
     backgroundColor: "#111827",
     padding: 30,
@@ -415,11 +412,8 @@ const styles = StyleSheet.create({
     width: "85%",
     alignItems: "center",
   },
-
   bigIcon: { fontSize: 50 },
-
   title: { color: "white", fontSize: 24, marginBottom: 20 },
-
   btnGreen: {
     backgroundColor: "#22C55E",
     padding: 18,
@@ -428,7 +422,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     alignItems: "center",
   },
-
   btnRed: {
     backgroundColor: "#EF4444",
     padding: 18,
@@ -436,6 +429,5 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
   },
-
   btnText: { color: "white", fontWeight: "bold" },
 });
