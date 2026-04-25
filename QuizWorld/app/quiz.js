@@ -21,7 +21,6 @@ import {
 
 const { width } = Dimensions.get("window");
 
-// 🔀 Shuffle
 const shuffleArray = (array) => {
   const arr = [...array];
   for (let i = arr.length - 1; i > 0; i--) {
@@ -49,9 +48,6 @@ export default function Quiz() {
   const [combo, setCombo] = useState(1);
   const [streak, setStreak] = useState(0);
 
-  const [xp, setXp] = useState(0);
-  const [level, setLevel] = useState(1);
-
   const progressAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const rewardAnim = useRef(new Animated.Value(0)).current;
@@ -60,12 +56,12 @@ export default function Quiz() {
 
   const current = QUESTIONS[index];
 
-  // 🔀 shuffle
+  // shuffle
   useEffect(() => {
     setShuffledOptions(shuffleArray(current.options));
   }, [index]);
 
-  // 📊 progress
+  // progress
   useEffect(() => {
     Animated.timing(progressAnim, {
       toValue: (index + 1) / QUESTIONS.length,
@@ -74,7 +70,7 @@ export default function Quiz() {
     }).start();
   }, [index]);
 
-  // ⏱ TIMER SAFE
+  // TIMER FIX
   useEffect(() => {
     if (gameOver) return;
 
@@ -85,23 +81,20 @@ export default function Quiz() {
 
     if (time <= 5) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      Animated.sequence([
-        Animated.timing(scaleAnim, { toValue: 1.2, duration: 100, useNativeDriver: true }),
-        Animated.timing(scaleAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
-      ]).start();
     }
 
-    timerRef.current = setTimeout(() => setTime((t) => t - 1), 1000);
+    timerRef.current = setTimeout(() => {
+      setTime((t) => t - 1);
+    }, 1000);
+
     return () => clearTimeout(timerRef.current);
   }, [time, gameOver]);
 
-  // 📢 ADS
+  // ADS
   useEffect(() => {
     interstitial.load();
   }, []);
 
-  // 🔊 SOUND
   const playSound = async (type) => {
     try {
       const { sound } = await Audio.Sound.createAsync(
@@ -113,9 +106,10 @@ export default function Quiz() {
     } catch {}
   };
 
-  // 💥 PERTE VIE
   const loseLife = async () => {
     if (gameOver) return;
+
+    clearTimeout(timerRef.current);
 
     await playSound("wrong");
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -144,43 +138,12 @@ export default function Quiz() {
     }
   };
 
-  // 🧠 XP SYSTEM
-  const updateXP = async () => {
-    try {
-      const xpData = await AsyncStorage.getItem("XP");
-      const levelData = await AsyncStorage.getItem("LEVEL");
-
-      let currentXP = xpData ? parseInt(xpData) : 0;
-      let currentLevel = levelData ? parseInt(levelData) : 1;
-
-      let gainedXP = Math.floor(money / 10);
-
-      let newXP = currentXP + gainedXP;
-      let newLevel = currentLevel;
-
-      while (newXP >= newLevel * 100) {
-        newXP -= newLevel * 100;
-        newLevel++;
-      }
-
-      await AsyncStorage.setItem("XP", newXP.toString());
-      await AsyncStorage.setItem("LEVEL", newLevel.toString());
-
-      setXp(newXP);
-      setLevel(newLevel);
-    } catch {}
-  };
-
-  // 🏆 LEADERBOARD SAVE
   const saveLeaderboard = async () => {
     try {
       const data = await AsyncStorage.getItem("LEADERBOARD");
       let leaderboard = data ? JSON.parse(data) : [];
 
-      leaderboard.push({
-        score: money,
-        date: Date.now(),
-      });
+      leaderboard.push({ score: money, date: Date.now() });
 
       leaderboard = leaderboard
         .sort((a, b) => b.score - a.score)
@@ -200,27 +163,11 @@ export default function Quiz() {
       if (Math.random() < 0.4) interstitial.show();
     } catch {}
 
-    try {
-      const best = await AsyncStorage.getItem("BEST_SCORE");
-      const games = await AsyncStorage.getItem("GAMES_PLAYED");
-
-      const newBest =
-        !best || money > parseInt(best) ? money : parseInt(best);
-
-      await AsyncStorage.setItem("BEST_SCORE", newBest.toString());
-      await AsyncStorage.setItem(
-        "GAMES_PLAYED",
-        ((games ? parseInt(games) : 0) + 1).toString()
-      );
-    } catch {}
-
-    await updateXP();
-    await saveLeaderboard(); // 🔥 ajout clé
+    await saveLeaderboard();
 
     router.replace({ pathname: "/results", params: { money } });
   };
 
-  // 🎯 ANSWER
   const handleAnswer = (option) => {
     if (selected) return;
 
@@ -229,11 +176,18 @@ export default function Quiz() {
     setTimeout(async () => {
       if (option === current.answer) {
         await playSound("correct");
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         Animated.sequence([
-          Animated.timing(rewardAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-          Animated.timing(rewardAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(rewardAnim, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(rewardAnim, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
         ]).start();
 
         const newStreak = streak + 1;
@@ -252,14 +206,20 @@ export default function Quiz() {
       } else {
         loseLife();
       }
-    }, 400);
+    }, 300);
   };
 
-  // ✅ CONTINUER
+  // 🔥 REVIVE FIX TOTAL
   const revive = () => {
-    setHearts(3);
+    clearTimeout(timerRef.current);
+
     setGameOver(false);
-    setTime(15);
+    setHearts(3);
+    setSelected(null);
+
+    setTimeout(() => {
+      setTime(15);
+    }, 50);
   };
 
   const progressWidth = progressAnim.interpolate({
@@ -274,7 +234,7 @@ export default function Quiz() {
 
   const danger = time <= 5;
 
-  // 💔 GAME OVER
+  // GAME OVER
   if (gameOver) {
     return (
       <View style={styles.overlay}>
@@ -296,64 +256,80 @@ export default function Quiz() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.hearts}>
-          {"❤️".repeat(hearts) + "🖤".repeat(5 - hearts)}
-        </Text>
+      
+      <View style={styles.top}>
+        <View style={styles.header}>
+          <Text style={styles.hearts}>
+            {"❤️".repeat(hearts) + "🖤".repeat(5 - hearts)}
+          </Text>
 
-        <Animated.Text style={[styles.money, { transform: [{ scale: rewardScale }] }]}>
-          💰 {money}
-        </Animated.Text>
+          <Animated.Text
+            style={[styles.money, { transform: [{ scale: rewardScale }] }]}
+          >
+            💰 {money}
+          </Animated.Text>
 
-        <Animated.View
-          style={[
-            styles.timer,
-            danger && { backgroundColor: "#EF4444" },
-            { transform: [{ scale: scaleAnim }] },
-          ]}
-        >
-          <Text style={styles.timerText}>{time}</Text>
-        </Animated.View>
+          <Animated.View
+            style={[
+              styles.timer,
+              danger && { backgroundColor: "#EF4444" },
+              { transform: [{ scale: scaleAnim }] },
+            ]}
+          >
+            <Text style={styles.timerText}>{time}</Text>
+          </Animated.View>
+        </View>
+
+        <Text style={styles.combo}>🔥 x{combo} | {streak}</Text>
+
+        <View style={styles.progress}>
+          <Animated.View style={[styles.fill, { width: progressWidth }]} />
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.question}>{current.question}</Text>
+        </View>
+
+        {shuffledOptions.map((opt) => (
+          <TouchableOpacity
+            key={opt}
+            onPress={() => handleAnswer(opt)}
+            style={[
+              styles.option,
+              selected === opt &&
+                (opt === current.answer ? styles.correct : styles.wrong),
+            ]}
+          >
+            <Text style={styles.optionText}>{opt}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      <Text style={styles.combo}>🔥 x{combo} | {streak}</Text>
-
-      <View style={styles.progress}>
-        <Animated.View style={[styles.fill, { width: progressWidth }]} />
+      {/* 🔻 BANNER FIX */}
+      <View style={styles.banner}>
+        <BannerAd
+          unitId="ca-app-pub-5350081816144613/9386901047"
+          size={BannerAdSize.BANNER}
+        />
       </View>
-
-      <View style={styles.card}>
-        <Text style={styles.question}>{current.question}</Text>
-      </View>
-
-      {shuffledOptions.map((opt) => (
-        <TouchableOpacity
-          key={opt}
-          onPress={() => handleAnswer(opt)}
-          style={[
-            styles.option,
-            selected === opt &&
-              (opt === current.answer ? styles.correct : styles.wrong),
-          ]}
-        >
-          <Text style={styles.optionText}>{opt}</Text>
-        </TouchableOpacity>
-      ))}
-
-      <BannerAd
-        unitId="ca-app-pub-5350081816144613/9386901047"
-        size={BannerAdSize.BANNER}
-      />
     </View>
   );
 }
 
-// 🎨 STYLE inchangé (déjà propre)
+// STYLE
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0A0F2C", padding: 15 },
+  container: { flex: 1, backgroundColor: "#0A0F2C" },
+
+  top: { flex: 1, padding: 15, justifyContent: "center" },
+
+  banner: { alignItems: "center", marginBottom: 5 },
+
   header: { flexDirection: "row", justifyContent: "space-between" },
+
   hearts: { fontSize: 26 },
+
   money: { color: "#FFD700", fontSize: 20, fontWeight: "bold" },
+
   timer: {
     width: 50,
     height: 50,
@@ -362,27 +338,34 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
   timerText: { color: "white", fontWeight: "bold" },
+
   combo: { textAlign: "center", color: "#F59E0B", marginVertical: 8 },
+
   progress: {
     height: 10,
     backgroundColor: "#1F2937",
     borderRadius: 10,
     overflow: "hidden",
   },
+
   fill: { height: "100%", backgroundColor: "#22C55E" },
+
   card: {
     backgroundColor: "#1E3A8A",
     padding: 25,
     borderRadius: 20,
     marginVertical: 10,
   },
+
   question: {
     color: "white",
     textAlign: "center",
     fontSize: 20,
     fontWeight: "bold",
   },
+
   option: {
     backgroundColor: "#2563EB",
     paddingVertical: 18,
@@ -391,20 +374,24 @@ const styles = StyleSheet.create({
     width: width * 0.95,
     alignSelf: "center",
   },
+
   optionText: {
     color: "white",
     textAlign: "center",
     fontSize: 17,
     fontWeight: "600",
   },
+
   correct: { backgroundColor: "#16A34A" },
   wrong: { backgroundColor: "#DC2626" },
+
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.85)",
     justifyContent: "center",
     alignItems: "center",
   },
+
   cardGameOver: {
     backgroundColor: "#111827",
     padding: 30,
@@ -412,8 +399,11 @@ const styles = StyleSheet.create({
     width: "85%",
     alignItems: "center",
   },
+
   bigIcon: { fontSize: 50 },
+
   title: { color: "white", fontSize: 24, marginBottom: 20 },
+
   btnGreen: {
     backgroundColor: "#22C55E",
     padding: 18,
@@ -422,6 +412,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     alignItems: "center",
   },
+
   btnRed: {
     backgroundColor: "#EF4444",
     padding: 18,
@@ -429,5 +420,6 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
   },
+
   btnText: { color: "white", fontWeight: "bold" },
 });
