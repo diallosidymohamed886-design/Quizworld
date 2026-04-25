@@ -36,24 +36,28 @@ export default function Home() {
     loadData();
   }, []);
 
-  const generateSmartLeaderboard = (score) => {
-    const base = score || 300;
+  // 🧠 CLASSEMENT INTELLIGENT (9 IA + TOI)
+  const generateSmartLeaderboard = (userScore) => {
+    const base = userScore || 300;
 
-    const players = [
+    const aiPlayers = [
       { name: "👑 TITAN", score: base + 1200, boss: true },
       { name: "🔥 Shadow", score: base + 800 },
       { name: "⚡ Blitz", score: base + 500 },
-      { name: "🧠 Cortex", score: base + 200 },
-      { name: "🚀 Nova", score: base + 100 },
-
-      { name: "🟢 TOI", score: base },
-
+      { name: "🧠 Cortex", score: base + 300 },
+      { name: "🚀 Nova", score: base + 150 },
+      { name: "💎 Vortex", score: base + 50 },
       { name: "🎯 Pulse", score: base - 100 },
       { name: "📚 Neo", score: base - 200 },
       { name: "🎮 Rookie", score: base - 400 },
     ];
 
-    return players.sort((a, b) => b.score - a.score);
+    const allPlayers = [
+      ...aiPlayers,
+      { name: "🟢 TOI", score: userScore },
+    ];
+
+    return allPlayers.sort((a, b) => b.score - a.score);
   };
 
   const loadData = async () => {
@@ -72,7 +76,7 @@ export default function Home() {
 
       const board = generateSmartLeaderboard(userScore);
 
-      // 🎯 CHECK BOSS
+      // 👑 CHECK SI BOSS BATTU
       if (userScore > board[0].score) {
         await AsyncStorage.setItem("BOSS_BEAT", "true");
         setBossBeaten(true);
@@ -125,7 +129,7 @@ export default function Home() {
         <Text style={styles.rank}>👑 {getRank()}</Text>
       </View>
 
-      {/* 🎮 PLAY */}
+      {/* PLAY */}
       <TouchableOpacity
         style={styles.playButton}
         onPress={() => router.replace("/quiz")}
