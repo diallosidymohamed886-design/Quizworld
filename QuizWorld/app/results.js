@@ -30,22 +30,22 @@ export default function Results() {
   const [bestScore, setBestScore] = useState(0);
   const [gamesPlayed, setGamesPlayed] = useState(0);
 
-  // 💥 INTERSTITIAL SAFE (1 seule fois)
+  // 💥 INTERSTITIAL (50% chance = UX safe)
   useEffect(() => {
+    interstitial.load();
+
     const unsubscribe = interstitial.addAdEventListener(
       AdEventType.LOADED,
       () => {
-        try {
-          interstitial.show();
-        } catch {}
+        if (Math.random() < 0.5) {
+          try {
+            interstitial.show();
+          } catch {}
+        }
       }
     );
 
-    interstitial.load();
-
-    return () => {
-      unsubscribe();
-    };
+    return unsubscribe;
   }, []);
 
   // 💾 LOAD STATS
@@ -63,7 +63,7 @@ export default function Results() {
     } catch {}
   };
 
-  // 🧠 MESSAGE DYNAMIQUE
+  // 🧠 MESSAGE
   useEffect(() => {
     if (money < 200) setMessage("😅 Pas mal, mais tu peux mieux faire !");
     else if (money < 500) setMessage("🔥 Bien joué !");
@@ -71,9 +71,15 @@ export default function Results() {
     else setMessage("🏆 Niveau légende !");
   }, [money]);
 
-  // 🎁 REWARD BONUS (SAFE)
+  // 🎁 BONUS SAFE
   const getBonus = () => {
-    const unsubscribe = rewarded.addAdEventListener(
+    rewarded.addAdEventListener(AdEventType.LOADED, () => {
+      try {
+        rewarded.show();
+      } catch {}
+    });
+
+    rewarded.addAdEventListener(
       RewardedAdEventType.EARNED_REWARD,
       () => {
         router.replace("/quiz");
@@ -81,44 +87,41 @@ export default function Results() {
     );
 
     rewarded.load();
-    rewarded.show();
-
-    // nettoyage
-    setTimeout(() => {
-      unsubscribe();
-    }, 2000);
   };
 
   return (
     <View style={styles.container}>
-      {/* 💰 SCORE */}
+      {/* 🏆 TITLE */}
       <Text style={styles.title}>Résultat</Text>
 
+      {/* 💰 SCORE */}
       <Text style={styles.score}>💰 {money}</Text>
 
+      {/* 🧠 MESSAGE */}
       <Text style={styles.message}>{message}</Text>
 
       {/* 📊 STATS */}
-      <Text style={styles.stat}>🏆 Meilleur : {bestScore}</Text>
-      <Text style={styles.stat}>🎮 Parties : {gamesPlayed}</Text>
+      <View style={styles.statsBox}>
+        <Text style={styles.stat}>🏆 Meilleur : {bestScore}</Text>
+        <Text style={styles.stat}>🎮 Parties : {gamesPlayed}</Text>
+      </View>
 
-      {/* 🔁 REJOUER */}
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => router.replace("/")}
-      >
-        <Text style={styles.buttonText}>Rejouer</Text>
-      </TouchableOpacity>
+      {/* 🔘 BUTTONS */}
+      <View style={styles.buttons}>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => router.replace("/")}
+        >
+          <Text style={styles.buttonText}>Rejouer</Text>
+        </TouchableOpacity>
 
-      {/* 🎁 BONUS PUB */}
-      <TouchableOpacity style={styles.rewardBtn} onPress={getBonus}>
-        <Text style={styles.buttonText}>
-          🎁 Rejouer + Bonus
-        </Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.rewardBtn} onPress={getBonus}>
+          <Text style={styles.buttonText}>🎁 Bonus</Text>
+        </TouchableOpacity>
+      </View>
 
-      {/* 📢 BANNER */}
-      <View style={{ marginTop: 20 }}>
+      {/* 📢 PUB */}
+      <View style={styles.banner}>
         <BannerAd
           unitId="ca-app-pub-5350081816144613/9386901047"
           size={BannerAdSize.BANNER}
@@ -132,52 +135,65 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0A0F2C",
-    justifyContent: "center",
+    justifyContent: "space-evenly",
     alignItems: "center",
+    padding: 20,
   },
 
   title: {
     color: "white",
-    fontSize: 26,
-    marginBottom: 10,
+    fontSize: 34,
+    fontWeight: "bold",
   },
 
   score: {
-    fontSize: 40,
+    fontSize: 50,
     color: "#FFD700",
     fontWeight: "bold",
-    marginBottom: 10,
   },
 
   message: {
     color: "white",
-    marginBottom: 20,
+    fontSize: 18,
+    textAlign: "center",
+  },
+
+  statsBox: {
+    alignItems: "center",
+    gap: 5,
   },
 
   stat: {
     color: "#ccc",
-    marginBottom: 5,
+    fontSize: 16,
+  },
+
+  buttons: {
+    width: "100%",
+    gap: 15,
   },
 
   button: {
     backgroundColor: "#2563EB",
-    padding: 15,
+    padding: 18,
     borderRadius: 20,
-    marginBottom: 10,
-    width: 200,
     alignItems: "center",
   },
 
   rewardBtn: {
     backgroundColor: "#F59E0B",
-    padding: 15,
+    padding: 18,
     borderRadius: 20,
-    width: 200,
     alignItems: "center",
   },
 
   buttonText: {
     color: "white",
     fontWeight: "bold",
+    fontSize: 18,
+  },
+
+  banner: {
+    marginTop: 10,
   },
 });
