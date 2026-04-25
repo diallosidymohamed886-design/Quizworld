@@ -1,5 +1,11 @@
-import { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { QUESTIONS } from "../constants/questions";
 import { Audio } from "expo-av";
@@ -44,14 +50,27 @@ export default function Quiz() {
   const [gameOver, setGameOver] = useState(false);
   const [shuffledOptions, setShuffledOptions] = useState([]);
 
-  // 🔥 NOUVEAU
   const [combo, setCombo] = useState(1);
   const [streak, setStreak] = useState(0);
 
+  const progressAnim = useRef(new Animated.Value(0)).current;
+
   const current = QUESTIONS[index];
 
+  // 🔄 shuffle
   useEffect(() => {
     setShuffledOptions(shuffleArray(current.options));
+  }, [index]);
+
+  // 🎞️ animation barre
+  useEffect(() => {
+    const progress = (index + 1) / QUESTIONS.length;
+
+    Animated.timing(progressAnim, {
+      toValue: progress,
+      duration: 400,
+      useNativeDriver: false,
+    }).start();
   }, [index]);
 
   // 🔊 SOUND
@@ -72,11 +91,16 @@ export default function Quiz() {
       loseLife();
       return;
     }
+
+    if (time <= 5) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+
     const timer = setTimeout(() => setTime(time - 1), 1000);
     return () => clearTimeout(timer);
   }, [time]);
 
-  // 📢 LOAD ADS
+  // 📢 ADS
   useEffect(() => {
     interstitial.load();
     rewarded.load();
@@ -130,7 +154,6 @@ export default function Quiz() {
     router.push({ pathname: "/results", params: { money } });
   };
 
-  // 🎯 RÉPONSE (MODE ULTIME)
   const handleAnswer = (option) => {
     if (selected) return;
 
@@ -151,17 +174,14 @@ export default function Quiz() {
 
         setCombo(newCombo);
 
-        const gain = current.reward * newCombo;
-        setMoney((m) => m + gain);
-
+        setMoney((m) => m + current.reward * newCombo);
         nextQuestion();
       } else {
         loseLife();
       }
-    }, 500);
+    }, 400);
   };
 
-  // 🎁 REVIVE
   const revive = () => {
     const unsubLoaded = rewarded.addAdEventListener(
       AdEventType.LOADED,
@@ -204,35 +224,50 @@ export default function Quiz() {
     );
   }
 
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
+  });
+
+  const danger = time <= 5;
+
   return (
     <View style={styles.container}>
       {/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.hearts}>{renderHearts()}</Text>
 
-        <View style={styles.scoreBox}>
-          <Text style={styles.money}>${money}</Text>
-        </View>
+        <Text style={styles.money}>💰 {money}</Text>
 
-        <View style={styles.timerBox}>
-          <Text style={styles.timer}>{time}s</Text>
+        <View
+          style={[
+            styles.timerCircle,
+            danger && { backgroundColor: "#EF4444" },
+          ]}
+        >
+          <Text style={styles.timerText}>{time}</Text>
         </View>
       </View>
 
-      {/* 🔥 COMBO UI */}
+      {/* COMBO */}
       <View style={styles.comboBox}>
         <Text style={styles.combo}>🔥 x{combo}</Text>
         <Text style={styles.streak}>Streak: {streak}</Text>
       </View>
 
-      <Text style={styles.progress}>
-        Question {index + 1}/{QUESTIONS.length}
-      </Text>
+      {/* BARRE */}
+      <View style={styles.progressBarContainer}>
+        <Animated.View
+          style={[styles.progressBarFill, { width: progressWidth }]}
+        />
+      </View>
 
+      {/* QUESTION */}
       <View style={styles.card}>
         <Text style={styles.question}>{current.question}</Text>
       </View>
 
+      {/* OPTIONS */}
       <View style={styles.optionsContainer}>
         {shuffledOptions.map((opt) => (
           <TouchableOpacity
@@ -275,27 +310,25 @@ const styles = StyleSheet.create({
 
   hearts: { fontSize: 26 },
 
-  scoreBox: {
-    backgroundColor: "#111827",
-    paddingHorizontal: 15,
-    paddingVertical: 6,
-    borderRadius: 15,
-  },
-
   money: {
     color: "#FFD700",
     fontSize: 18,
     fontWeight: "bold",
   },
 
-  timerBox: {
+  timerCircle: {
+    width: 45,
+    height: 45,
+    borderRadius: 50,
     backgroundColor: "#1E3A8A",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
   },
 
-  timer: { color: "white", fontWeight: "bold" },
+  timerText: {
+    color: "white",
+    fontWeight: "bold",
+  },
 
   comboBox: { alignItems: "center" },
 
@@ -307,9 +340,16 @@ const styles = StyleSheet.create({
 
   streak: { color: "#9CA3AF" },
 
-  progress: {
-    color: "#9CA3AF",
-    textAlign: "center",
+  progressBarContainer: {
+    height: 10,
+    backgroundColor: "#1F2937",
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: "#22C55E",
   },
 
   card: {
