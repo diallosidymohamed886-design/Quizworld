@@ -31,23 +31,38 @@ export default function Results() {
   const [bestScore, setBestScore] = useState(0);
   const [gamesPlayed, setGamesPlayed] = useState(0);
 
+  // 🔥 ANIMS
   const scaleAnim = useRef(new Animated.Value(0)).current;
+  const scoreAnim = useRef(new Animated.Value(0)).current;
 
-  // 🎬 ANIMATION
+  // 🎬 ENTRÉE + SCORE POP
   useEffect(() => {
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
       friction: 6,
     }).start();
+
+    Animated.sequence([
+      Animated.timing(scoreAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scoreAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
 
-  // 💥 INTERSTITIAL SAFE
+  // 💥 PUB SAFE
   useEffect(() => {
     const unsub = interstitial.addAdEventListener(
       AdEventType.LOADED,
       () => {
-        if (Math.random() < 0.4) {
+        if (Math.random() < 0.35) {
           try {
             interstitial.show();
           } catch {}
@@ -75,7 +90,7 @@ export default function Results() {
     loadStats();
   }, []);
 
-  // 🧠 MESSAGE SMART
+  // 🧠 MESSAGE
   useEffect(() => {
     if (money < 200) setMessage("😅 Continue, tu progresses !");
     else if (money < 500) setMessage("🔥 Bon niveau !");
@@ -84,37 +99,53 @@ export default function Results() {
     else setMessage("👑 LÉGENDE VIVANTE !");
   }, [money]);
 
+  const scoreScale = scoreAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.2],
+  });
+
   return (
     <View style={styles.container}>
-      {/* 🏆 HEADER */}
-      <Animated.View
-        style={[
-          styles.header,
-          { transform: [{ scale: scaleAnim }] },
-        ]}
-      >
-        <Text style={styles.title}>RÉSULTAT</Text>
-        <Text style={styles.score}>💰 {money}</Text>
-      </Animated.View>
+      
+      {/* CONTENU CENTRÉ */}
+      <View style={styles.content}>
+        
+        {/* HEADER */}
+        <Animated.View
+          style={[
+            styles.header,
+            { transform: [{ scale: scaleAnim }] },
+          ]}
+        >
+          <Text style={styles.title}>RÉSULTAT</Text>
 
-      {/* 🧠 MESSAGE */}
-      <Text style={styles.message}>{message}</Text>
+          <Animated.Text
+            style={[
+              styles.score,
+              { transform: [{ scale: scoreScale }] },
+            ]}
+          >
+            💰 {money}
+          </Animated.Text>
+        </Animated.View>
 
-      {/* 📊 STATS */}
-      <View style={styles.statsBox}>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>🏆 Meilleur</Text>
-          <Text style={styles.statValue}>{bestScore}</Text>
+        {/* MESSAGE */}
+        <Text style={styles.message}>{message}</Text>
+
+        {/* STATS */}
+        <View style={styles.statsBox}>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>🏆 Meilleur</Text>
+            <Text style={styles.statValue}>{bestScore}</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>🎮 Parties</Text>
+            <Text style={styles.statValue}>{gamesPlayed}</Text>
+          </View>
         </View>
 
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>🎮 Parties</Text>
-          <Text style={styles.statValue}>{gamesPlayed}</Text>
-        </View>
-      </View>
-
-      {/* 🎮 ACTION */}
-      <View style={styles.buttons}>
+        {/* BOUTON */}
         <TouchableOpacity
           activeOpacity={0.85}
           style={styles.buttonPrimary}
@@ -124,7 +155,7 @@ export default function Results() {
         </TouchableOpacity>
       </View>
 
-      {/* 📢 PUB */}
+      {/* 📢 BANNER FIX BAS */}
       <View style={styles.banner}>
         <BannerAd
           unitId="ca-app-pub-5350081816144613/9386901047"
@@ -139,13 +170,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0A0F2C",
-    justifyContent: "space-between",
+  },
+
+  content: {
+    flex: 1,
+    justifyContent: "center",
     padding: 20,
   },
 
   header: {
     alignItems: "center",
-    marginTop: 40,
+    marginBottom: 10,
   },
 
   title: {
@@ -155,7 +190,7 @@ const styles = StyleSheet.create({
   },
 
   score: {
-    fontSize: 70,
+    fontSize: 72,
     color: "#FFD700",
     fontWeight: "bold",
     marginTop: 10,
@@ -165,13 +200,14 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 20,
     textAlign: "center",
-    marginVertical: 15,
+    marginVertical: 20,
     fontWeight: "600",
   },
 
   statsBox: {
     flexDirection: "row",
     justifyContent: "space-between",
+    marginBottom: 25,
   },
 
   statCard: {
@@ -193,10 +229,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     marginTop: 5,
-  },
-
-  buttons: {
-    marginTop: 10,
   },
 
   buttonPrimary: {
