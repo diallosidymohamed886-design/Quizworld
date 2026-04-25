@@ -36,19 +36,19 @@ export default function Home() {
     loadData();
   }, []);
 
-  // 🧠 CLASSEMENT INTELLIGENT (9 IA + TOI)
+  // 🧠 CLASSEMENT INTELLIGENT PRO
   const generateSmartLeaderboard = (userScore) => {
-    const base = userScore || 300;
+    const base = Math.max(userScore, 300);
 
     const aiPlayers = [
-      { name: "👑 TITAN", score: base + 1200, boss: true },
-      { name: "🔥 Sidy", score: base + 800 },
-      { name: "⚡ Alpha", score: base + 500 },
+      { name: "👑 TITAN", score: base + 1000, boss: true },
+      { name: "🔥 AlphaX", score: base + 700 },
+      { name: "⚡ BrainMax", score: base + 500 },
       { name: "🧠 Aicha", score: base + 300 },
       { name: "🚀 Nova", score: base + 150 },
       { name: "💎 Kamoudou", score: base + 50 },
-      { name: "🎯 Mariame toure", score: base - 100 },
-      { name: "📚 Neo", score: base - 200 },
+      { name: "🎯 Mariame", score: base - 100 },
+      { name: "📚 Neo", score: base - 250 },
       { name: "🎮 Rookie", score: base - 400 },
     ];
 
@@ -57,7 +57,7 @@ export default function Home() {
       { name: "🟢 TOI", score: userScore },
     ];
 
-    return allPlayers.sort((a, b) => b.score - a.score);
+    return allPlayers.sort((a, b) => b.score - a.score).slice(0, 10);
   };
 
   const loadData = async () => {
@@ -72,21 +72,24 @@ export default function Home() {
       setBestScore(userScore);
       setGamesPlayed(games ? parseInt(games) : 0);
       setStreak(streakData ? parseInt(streakData) : 0);
-      setBossBeaten(bossData === "true");
 
       const board = generateSmartLeaderboard(userScore);
 
-      // 👑 CHECK SI BOSS BATTU
-      if (userScore > board[0].score) {
+      // 👑 BOSS = toujours index 0
+      const bossScore = board[0].score;
+
+      if (userScore >= bossScore) {
         await AsyncStorage.setItem("BOSS_BEAT", "true");
         setBossBeaten(true);
+      } else {
+        setBossBeaten(bossData === "true");
       }
 
       setLeaderboard(board);
     } catch {}
   };
 
-  // 💥 ADS SAFE
+  // 💥 PUB SAFE
   useEffect(() => {
     interstitial.load();
 
@@ -111,90 +114,112 @@ export default function Home() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* HEADER */}
-      <View style={styles.header}>
-        <Text style={styles.logo}>🌍</Text>
-        <Text style={styles.title}>QuizWorld</Text>
-        <Text style={styles.subtitle}>
-          Deviens le meilleur joueur
-        </Text>
-      </View>
-
-      {/* STATS */}
-      <View style={styles.statsBox}>
-        <Text style={styles.stat}>🏆 {bestScore}</Text>
-        <Text style={styles.stat}>🎮 {gamesPlayed} parties</Text>
-        <Text style={styles.stat}>🔥 Streak: {streak}</Text>
-        <Text style={styles.rank}>👑 {getRank()}</Text>
-      </View>
-
-      {/* PLAY */}
-      <TouchableOpacity
-        style={styles.playButton}
-        onPress={() => router.replace("/quiz")}
-      >
-        <Text style={styles.playText}>JOUER</Text>
-      </TouchableOpacity>
-
-      {/* 🏆 CLASSEMENT */}
-      <View style={styles.leaderboardBox}>
-        <Text style={styles.leaderboardTitle}>
-          🏆 Classement intelligent
-        </Text>
-
-        {leaderboard.map((player, index) => (
-          <View
-            key={index}
-            style={[
-              styles.row,
-              player.name === "🟢 TOI" && styles.youRow,
-              player.boss && styles.bossRow,
-            ]}
-          >
-            <Text style={styles.rankNum}>#{index + 1}</Text>
-            <Text style={styles.playerName}>{player.name}</Text>
-            <Text style={styles.score}>{player.score}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* 👑 BOSS MESSAGE */}
-      {bossBeaten && (
-        <View style={styles.bossBox}>
-          <Text style={styles.bossText}>
-            👑 TU AS BATTU LE BOSS !
+    <View style={{ flex: 1, backgroundColor: "#0A0F2C" }}>
+      
+      <ScrollView contentContainerStyle={styles.container}>
+        
+        {/* HEADER */}
+        <View style={styles.header}>
+          <Text style={styles.logo}>🌍</Text>
+          <Text style={styles.title}>QuizWorld</Text>
+          <Text style={styles.subtitle}>
+            Deviens le meilleur joueur
           </Text>
-        </View>
-      )}
 
-      {/* INFOS */}
-      <View style={styles.infoBox}>
-        <Text style={styles.info}>🔥 Monte dans le classement</Text>
-        <Text style={styles.info}>⚔️ Bats le boss</Text>
-        <Text style={styles.info}>👑 Deviens numéro 1</Text>
+          {/* ⚙️ PROFILE */}
+          <TouchableOpacity
+            style={styles.profileBtn}
+            onPress={() => router.push("/profile")}
+          >
+            <Text style={{ fontSize: 22 }}>⚙️</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* STATS */}
+        <View style={styles.statsBox}>
+          <Text style={styles.stat}>🏆 {bestScore}</Text>
+          <Text style={styles.stat}>🎮 {gamesPlayed} parties</Text>
+          <Text style={styles.stat}>🔥 Streak: {streak}</Text>
+          <Text style={styles.rank}>👑 {getRank()}</Text>
+        </View>
+
+        {/* PLAY */}
+        <TouchableOpacity
+          style={styles.playButton}
+          onPress={() => router.replace("/quiz")}
+        >
+          <Text style={styles.playText}>JOUER</Text>
+        </TouchableOpacity>
+
+        {/* CLASSEMENT */}
+        <View style={styles.leaderboardBox}>
+          <Text style={styles.leaderboardTitle}>
+            🏆 Classement intelligent
+          </Text>
+
+          {leaderboard.map((player, index) => (
+            <View
+              key={index}
+              style={[
+                styles.row,
+                player.name === "🟢 TOI" && styles.youRow,
+                player.boss && styles.bossRow,
+              ]}
+            >
+              <Text style={styles.rankNum}>#{index + 1}</Text>
+              <Text style={styles.playerName}>{player.name}</Text>
+              <Text style={styles.score}>{player.score}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* BOSS MESSAGE */}
+        {bossBeaten && (
+          <View style={styles.bossBox}>
+            <Text style={styles.bossText}>
+              👑 TU AS BATTU LE BOSS !
+            </Text>
+          </View>
+        )}
+
+        {/* INFOS */}
+        <View style={styles.infoBox}>
+          <Text style={styles.info}>🔥 Monte dans le classement</Text>
+          <Text style={styles.info}>⚔️ Bats le boss</Text>
+          <Text style={styles.info}>👑 Deviens numéro 1</Text>
+        </View>
+
+      </ScrollView>
+
+      {/* 📢 BANNER FIX EN BAS */}
+      <View style={styles.banner}>
+        <BannerAd
+          unitId="ca-app-pub-5350081816144613/9386901047"
+          size={BannerAdSize.BANNER}
+        />
       </View>
 
-      {/* PUB */}
-      <BannerAd
-        unitId="ca-app-pub-5350081816144613/9386901047"
-        size={BannerAdSize.BANNER}
-      />
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    backgroundColor: "#0A0F2C",
     alignItems: "center",
+    paddingBottom: 80,
   },
 
   header: {
     alignItems: "center",
     marginTop: 30,
     marginBottom: 20,
+  },
+
+  profileBtn: {
+    position: "absolute",
+    right: 0,
+    top: 0,
   },
 
   logo: { fontSize: 70 },
@@ -276,7 +301,6 @@ const styles = StyleSheet.create({
   },
 
   rankNum: { color: "#9CA3AF" },
-
   playerName: { color: "white" },
 
   score: {
@@ -304,4 +328,13 @@ const styles = StyleSheet.create({
   },
 
   info: { color: "#E5E7EB" },
+
+  banner: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    alignItems: "center",
+    backgroundColor: "#0A0F2C",
+    paddingVertical: 5,
+  },
 });
