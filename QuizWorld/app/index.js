@@ -19,23 +19,9 @@ import {
 
 const { width } = Dimensions.get("window");
 
-// 💥 PUB SAFE
 const interstitial = InterstitialAd.createForAdRequest(
   "ca-app-pub-5350081816144613/1045376590"
 );
-
-// 🧠 JOUEURS IA (OPTIMISÉS)
-const AI_PLAYERS = [
-  { name: "🔥 AlphaX", score: 5000 },
-  { name: "👑 KingQuiz", score: 4200 },
-  { name: "⚡ BrainMax", score: 3500 },
-  { name: "🧠 GeniusPro", score: 2800 },
-  { name: "🚀 SpeedMind", score: 2200 },
-  { name: "💎 ElitePlayer", score: 1700 },
-  { name: "🎯 SharpIQ", score: 1300 },
-  { name: "📚 SmartOne", score: 900 },
-  { name: "🎮 RookieX", score: 500 },
-];
 
 export default function Home() {
   const router = useRouter();
@@ -44,37 +30,59 @@ export default function Home() {
   const [gamesPlayed, setGamesPlayed] = useState(0);
   const [streak, setStreak] = useState(0);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [bossBeaten, setBossBeaten] = useState(false);
 
-  // 🔥 LOAD DATA
   useEffect(() => {
     loadData();
   }, []);
+
+  const generateSmartLeaderboard = (score) => {
+    const base = score || 300;
+
+    const players = [
+      { name: "👑 TITAN", score: base + 1200, boss: true },
+      { name: "🔥 Shadow", score: base + 800 },
+      { name: "⚡ Blitz", score: base + 500 },
+      { name: "🧠 Cortex", score: base + 200 },
+      { name: "🚀 Nova", score: base + 100 },
+
+      { name: "🟢 TOI", score: base },
+
+      { name: "🎯 Pulse", score: base - 100 },
+      { name: "📚 Neo", score: base - 200 },
+      { name: "🎮 Rookie", score: base - 400 },
+    ];
+
+    return players.sort((a, b) => b.score - a.score);
+  };
 
   const loadData = async () => {
     try {
       const best = await AsyncStorage.getItem("BEST_SCORE");
       const games = await AsyncStorage.getItem("GAMES_PLAYED");
       const streakData = await AsyncStorage.getItem("STREAK");
+      const bossData = await AsyncStorage.getItem("BOSS_BEAT");
 
       const userScore = best ? parseInt(best) : 0;
 
       setBestScore(userScore);
       setGamesPlayed(games ? parseInt(games) : 0);
       setStreak(streakData ? parseInt(streakData) : 0);
+      setBossBeaten(bossData === "true");
 
-      // 🧠 CREATION CLASSEMENT HYBRIDE
-      const merged = [
-        ...AI_PLAYERS,
-        { name: "🟢 TOI", score: userScore },
-      ];
+      const board = generateSmartLeaderboard(userScore);
 
-      const sorted = merged.sort((a, b) => b.score - a.score);
+      // 🎯 CHECK BOSS
+      if (userScore > board[0].score) {
+        await AsyncStorage.setItem("BOSS_BEAT", "true");
+        setBossBeaten(true);
+      }
 
-      setLeaderboard(sorted);
+      setLeaderboard(board);
     } catch {}
   };
 
-  // 💥 INTERSTITIAL SAFE
+  // 💥 ADS SAFE
   useEffect(() => {
     interstitial.load();
 
@@ -92,7 +100,6 @@ export default function Home() {
     return () => unsub();
   }, []);
 
-  // 🏆 RANK
   const getRank = () => {
     if (bestScore < 500) return "Débutant";
     if (bestScore < 1500) return "Pro";
@@ -118,9 +125,8 @@ export default function Home() {
         <Text style={styles.rank}>👑 {getRank()}</Text>
       </View>
 
-      {/* PLAY */}
+      {/* 🎮 PLAY */}
       <TouchableOpacity
-        activeOpacity={0.85}
         style={styles.playButton}
         onPress={() => router.replace("/quiz")}
       >
@@ -130,15 +136,16 @@ export default function Home() {
       {/* 🏆 CLASSEMENT */}
       <View style={styles.leaderboardBox}>
         <Text style={styles.leaderboardTitle}>
-          🏆 Classement mondial
+          🏆 Classement intelligent
         </Text>
 
-        {leaderboard.slice(0, 10).map((player, index) => (
+        {leaderboard.map((player, index) => (
           <View
             key={index}
             style={[
               styles.row,
               player.name === "🟢 TOI" && styles.youRow,
+              player.boss && styles.bossRow,
             ]}
           >
             <Text style={styles.rankNum}>#{index + 1}</Text>
@@ -148,10 +155,19 @@ export default function Home() {
         ))}
       </View>
 
+      {/* 👑 BOSS MESSAGE */}
+      {bossBeaten && (
+        <View style={styles.bossBox}>
+          <Text style={styles.bossText}>
+            👑 TU AS BATTU LE BOSS !
+          </Text>
+        </View>
+      )}
+
       {/* INFOS */}
       <View style={styles.infoBox}>
         <Text style={styles.info}>🔥 Monte dans le classement</Text>
-        <Text style={styles.info}>🧠 Bats les meilleurs</Text>
+        <Text style={styles.info}>⚔️ Bats le boss</Text>
         <Text style={styles.info}>👑 Deviens numéro 1</Text>
       </View>
 
@@ -164,7 +180,6 @@ export default function Home() {
   );
 }
 
-// 🎨 DESIGN PRO
 const styles = StyleSheet.create({
   container: {
     padding: 20,
@@ -250,6 +265,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
 
+  bossRow: {
+    backgroundColor: "#7C3AED",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+  },
+
   rankNum: { color: "#9CA3AF" },
 
   playerName: { color: "white" },
@@ -257,6 +278,19 @@ const styles = StyleSheet.create({
   score: {
     color: "#FFD700",
     fontWeight: "bold",
+  },
+
+  bossBox: {
+    backgroundColor: "#7C3AED",
+    padding: 15,
+    borderRadius: 15,
+    marginBottom: 15,
+  },
+
+  bossText: {
+    color: "white",
+    fontWeight: "bold",
+    textAlign: "center",
   },
 
   infoBox: {
