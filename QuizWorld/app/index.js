@@ -33,14 +33,14 @@ export default function Home() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [bossBeaten, setBossBeaten] = useState(false);
 
-  // 🔥 REFRESH AUTO (IMPORTANT)
+  // 🔥 REFRESH AUTO
   useFocusEffect(
     useCallback(() => {
       loadData();
     }, [])
   );
 
-  // 🧠 CLASSEMENT INTELLIGENT
+  // 🧠 CLASSEMENT INTELLIGENT FIX
   const generateSmartLeaderboard = (userScore) => {
     const base = Math.max(userScore, 300);
 
@@ -61,14 +61,19 @@ export default function Home() {
       { name: "🟢 TOI", score: userScore },
     ];
 
-    return allPlayers.sort((a, b) => b.score - a.score);
+    return allPlayers
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10); // ✅ LIMIT
   };
 
-  // 🧠 LOAD DATA PRO
+  // 🧠 LOAD DATA FIX COMPLET
   const loadData = async () => {
     try {
       const historyData = await AsyncStorage.getItem("HISTORY");
-      const history = historyData ? JSON.parse(historyData) : [];
+      let history = historyData ? JSON.parse(historyData) : [];
+
+      // 🔥 TRI PAR DATE
+      history = history.sort((a, b) => a.date - b.date);
 
       // ✅ BEST SCORE
       const best = history.length
@@ -78,10 +83,11 @@ export default function Home() {
       // ✅ GAMES
       const games = history.length;
 
-      // ✅ STREAK INTELLIGENT
+      // ✅ STREAK RÉEL (victoires consécutives)
       let currentStreak = 0;
-      for (let i = history.length - 1; i > 0; i--) {
-        if (history[i].score > history[i - 1].score) {
+
+      for (let i = history.length - 1; i >= 0; i--) {
+        if (history[i].score > 0) {
           currentStreak++;
         } else break;
       }
@@ -92,7 +98,7 @@ export default function Home() {
 
       const board = generateSmartLeaderboard(best);
 
-      // 👑 BOSS CHECK
+      // 👑 BOSS CHECK FIX
       if (best >= board[0].score) {
         await AsyncStorage.setItem("BOSS_BEAT", "true");
         setBossBeaten(true);
@@ -136,6 +142,7 @@ export default function Home() {
   return (
     <View style={{ flex: 1, backgroundColor: "#0A0F2C" }}>
       <ScrollView contentContainerStyle={styles.container}>
+        
         {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.logo}>🌍</Text>
@@ -190,7 +197,7 @@ export default function Home() {
           ))}
         </View>
 
-        {/* BOSS MESSAGE */}
+        {/* BOSS */}
         {bossBeaten && (
           <View style={styles.bossBox}>
             <Text style={styles.bossText}>
@@ -205,9 +212,10 @@ export default function Home() {
           <Text style={styles.info}>⚔️ Bats le boss</Text>
           <Text style={styles.info}>👑 Deviens numéro 1</Text>
         </View>
+
       </ScrollView>
 
-      {/* BANNER FIX */}
+      {/* BANNER */}
       <View style={styles.banner}>
         <BannerAd
           unitId="ca-app-pub-5350081816144613/9386901047"
