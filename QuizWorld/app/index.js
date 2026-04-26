@@ -124,11 +124,11 @@ const generateSmartLeaderboard = (stats) => {
       boss: true,
     },
     {
-      name: "🔥 AlphaX",
+      name: "🔥 Sidy",
       score: clamp(1150 + average * 0.15 + consistency * 1.1, 150, 99999),
     },
     {
-      name: "⚡ BrainMax",
+      name: "⚡ Alpha",
       score: clamp(980 + recentAverage * 0.18 + games * 12, 100, 99999),
     },
     {
