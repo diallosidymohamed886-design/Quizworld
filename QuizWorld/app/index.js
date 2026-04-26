@@ -40,7 +40,7 @@ export default function Home() {
     }, [])
   );
 
-  // 🧠 CLASSEMENT INTELLIGENT FIX
+  // 🧠 CLASSEMENT INTELLIGENT
   const generateSmartLeaderboard = (userScore) => {
     const base = Math.max(userScore, 300);
 
@@ -56,24 +56,25 @@ export default function Home() {
       { name: "🎮 Rookie", score: base - 400 },
     ];
 
-    const allPlayers = [
-      ...aiPlayers,
-      { name: "🟢 TOI", score: userScore },
-    ];
-
-    return allPlayers
+    return [...aiPlayers, { name: "🟢 TOI", score: userScore }]
       .sort((a, b) => b.score - a.score)
-      .slice(0, 10); // ✅ LIMIT
+      .slice(0, 10);
   };
 
-  // 🧠 LOAD DATA FIX COMPLET
+  // 🧠 LOAD DATA PRO
   const loadData = async () => {
     try {
-      const historyData = await AsyncStorage.getItem("HISTORY");
-      let history = historyData ? JSON.parse(historyData) : [];
+      const raw = await AsyncStorage.getItem("HISTORY");
+
+      let history = [];
+      try {
+        history = raw ? JSON.parse(raw) : [];
+      } catch {
+        history = [];
+      }
 
       // 🔥 TRI PAR DATE
-      history = history.sort((a, b) => a.date - b.date);
+      history.sort((a, b) => a.date - b.date);
 
       // ✅ BEST SCORE
       const best = history.length
@@ -83,11 +84,11 @@ export default function Home() {
       // ✅ GAMES
       const games = history.length;
 
-      // ✅ STREAK RÉEL (victoires consécutives)
+      // 🔥 STREAK INTELLIGENT (progression réelle)
       let currentStreak = 0;
 
-      for (let i = history.length - 1; i >= 0; i--) {
-        if (history[i].score > 0) {
+      for (let i = history.length - 1; i > 0; i--) {
+        if (history[i].score > history[i - 1].score) {
           currentStreak++;
         } else break;
       }
@@ -98,7 +99,7 @@ export default function Home() {
 
       const board = generateSmartLeaderboard(best);
 
-      // 👑 BOSS CHECK FIX
+      // 👑 BOSS CHECK
       if (best >= board[0].score) {
         await AsyncStorage.setItem("BOSS_BEAT", "true");
         setBossBeaten(true);
@@ -109,7 +110,7 @@ export default function Home() {
 
       setLeaderboard(board);
     } catch (e) {
-      console.log(e);
+      console.log("LOAD ERROR:", e);
     }
   };
 
