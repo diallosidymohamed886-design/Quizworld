@@ -50,10 +50,15 @@ export default function Quiz() {
 
   const progressAnim = useRef(new Animated.Value(0)).current;
   const rewardAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
   const timerRef = useRef(null);
-  const isEnding = useRef(false); // 🔥 PROTECTION
+  const isEnding = useRef(false);
 
   const current = QUESTIONS[index];
+
+  // 🔒 sécurité si data cassée
+  if (!current) return null;
 
   // 🔀 Shuffle
   useEffect(() => {
@@ -73,9 +78,28 @@ export default function Quiz() {
   useEffect(() => {
     if (gameOver) return;
 
+    clearTimeout(timerRef.current);
+
     if (time === 0) {
       loseLife();
       return;
+    }
+
+    if (time <= 5) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.2,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
 
     timerRef.current = setTimeout(() => {
@@ -90,7 +114,7 @@ export default function Quiz() {
     interstitial.load();
   }, []);
 
-  // 🔊 SOUND
+  // 🔊 SOUND SAFE
   const playSound = async (type) => {
     try {
       const { sound } = await Audio.Sound.createAsync(
@@ -98,7 +122,14 @@ export default function Quiz() {
           ? require("../assets/sounds/correct.mp3")
           : require("../assets/sounds/wrong.mp3")
       );
+
       await sound.playAsync();
+
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
     } catch {}
   };
 
@@ -136,7 +167,7 @@ export default function Quiz() {
     }
   };
 
-  // 💾 SAVE HISTORY (ULTRA PROPRE)
+  // 💾 SAVE HISTORY
   const saveHistory = async () => {
     try {
       const data = await AsyncStorage.getItem("HISTORY");
@@ -156,14 +187,12 @@ export default function Quiz() {
       });
 
       await AsyncStorage.setItem("HISTORY", JSON.stringify(history));
-    } catch (e) {
-      console.log("Save error", e);
-    }
+    } catch {}
   };
 
-  // 🏁 FIN DE PARTIE
+  // 🏁 FIN
   const endGame = async () => {
-    if (isEnding.current) return; // 🔥 ANTI DOUBLE
+    if (isEnding.current) return;
     isEnding.current = true;
 
     clearTimeout(timerRef.current);
@@ -238,6 +267,8 @@ export default function Quiz() {
     outputRange: ["0%", "100%"],
   });
 
+  const danger = time <= 5;
+
   // 💔 GAME OVER
   if (gameOver) {
     return (
@@ -268,9 +299,15 @@ export default function Quiz() {
 
           <Text style={styles.money}>💰 {money}</Text>
 
-          <View style={styles.timer}>
+          <Animated.View
+            style={[
+              styles.timer,
+              danger && { backgroundColor: "#EF4444" },
+              { transform: [{ scale: scaleAnim }] },
+            ]}
+          >
             <Text style={styles.timerText}>{time}</Text>
-          </View>
+          </Animated.View>
         </View>
 
         <Text style={styles.combo}>🔥 x{combo} | {streak}</Text>
