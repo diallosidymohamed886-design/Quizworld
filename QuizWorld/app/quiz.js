@@ -21,6 +21,10 @@ import {
 
 const { width } = Dimensions.get("window");
 
+const interstitial = InterstitialAd.createForAdRequest(
+  "ca-app-pub-5350081816144613/1045376590"
+);
+
 const shuffleArray = (array) => {
   const arr = [...array];
   for (let i = arr.length - 1; i > 0; i--) {
@@ -29,10 +33,6 @@ const shuffleArray = (array) => {
   }
   return arr;
 };
-
-const interstitial = InterstitialAd.createForAdRequest(
-  "ca-app-pub-5350081816144613/1045376590"
-);
 
 export default function Quiz() {
   const router = useRouter();
@@ -51,15 +51,16 @@ export default function Quiz() {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const rewardAnim = useRef(new Animated.Value(0)).current;
   const timerRef = useRef(null);
+  const isEnding = useRef(false); // 🔥 PROTECTION
 
   const current = QUESTIONS[index];
 
-  // 🔀 shuffle
+  // 🔀 Shuffle
   useEffect(() => {
     setShuffledOptions(shuffleArray(current.options));
   }, [index]);
 
-  // 📊 progress
+  // 📊 Progress
   useEffect(() => {
     Animated.timing(progressAnim, {
       toValue: (index + 1) / QUESTIONS.length,
@@ -122,6 +123,7 @@ export default function Quiz() {
     }
   };
 
+  // ➡️ NEXT
   const nextQuestion = () => {
     clearTimeout(timerRef.current);
 
@@ -134,11 +136,19 @@ export default function Quiz() {
     }
   };
 
-  // 🔥 SAUVEGARDE HISTORIQUE (CLÉ PRINCIPALE)
+  // 💾 SAVE HISTORY (ULTRA PROPRE)
   const saveHistory = async () => {
     try {
       const data = await AsyncStorage.getItem("HISTORY");
-      let history = data ? JSON.parse(data) : [];
+      let history = [];
+
+      if (data) {
+        try {
+          history = JSON.parse(data);
+        } catch {
+          history = [];
+        }
+      }
 
       history.push({
         score: money,
@@ -146,18 +156,23 @@ export default function Quiz() {
       });
 
       await AsyncStorage.setItem("HISTORY", JSON.stringify(history));
-    } catch {}
+    } catch (e) {
+      console.log("Save error", e);
+    }
   };
 
   // 🏁 FIN DE PARTIE
   const endGame = async () => {
+    if (isEnding.current) return; // 🔥 ANTI DOUBLE
+    isEnding.current = true;
+
     clearTimeout(timerRef.current);
 
     try {
       if (Math.random() < 0.4) interstitial.show();
     } catch {}
 
-    await saveHistory(); // 🔥 IMPORTANT
+    await saveHistory();
 
     router.replace({
       pathname: "/results",
@@ -174,6 +189,7 @@ export default function Quiz() {
     setTimeout(async () => {
       if (option === current.answer) {
         await playSound("correct");
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         Animated.sequence([
           Animated.timing(rewardAnim, {
@@ -207,7 +223,7 @@ export default function Quiz() {
     }, 300);
   };
 
-  // 🔥 REVIVE FIX
+  // 🔥 REVIVE
   const revive = () => {
     clearTimeout(timerRef.current);
 
@@ -282,7 +298,6 @@ export default function Quiz() {
         ))}
       </View>
 
-      {/* BANNER */}
       <View style={styles.banner}>
         <BannerAd
           unitId="ca-app-pub-5350081816144613/9386901047"
@@ -293,7 +308,6 @@ export default function Quiz() {
   );
 }
 
-// 🎨 STYLE
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0A0F2C" },
   top: { flex: 1, padding: 15, justifyContent: "center" },
