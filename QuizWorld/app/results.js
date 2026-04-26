@@ -58,12 +58,12 @@ export default function Results() {
 
   // 💥 ADS SAFE
   useEffect(() => {
-    let isMounted = true;
+    let mounted = true;
 
     const unsub = interstitial.addAdEventListener(
       AdEventType.LOADED,
       () => {
-        if (isMounted && Math.random() < 0.35) {
+        if (mounted && Math.random() < 0.35) {
           try {
             interstitial.show();
           } catch {}
@@ -74,47 +74,46 @@ export default function Results() {
     interstitial.load();
 
     return () => {
-      isMounted = false;
+      mounted = false;
       unsub();
     };
   }, []);
 
-  // 💾 LOAD + SAVE STATS (ULTRA IMPORTANT)
+  // 💾 LOAD STATS (SOURCE UNIQUE = HISTORY)
   useEffect(() => {
     const loadStats = async () => {
       try {
         const data = await AsyncStorage.getItem("HISTORY");
 
         let history = [];
-        if (data) {
-          try {
-            history = JSON.parse(data);
-          } catch {
-            history = [];
-          }
+        try {
+          history = data ? JSON.parse(data) : [];
+        } catch {
+          history = [];
         }
 
+        if (!Array.isArray(history)) history = [];
+
+        // ✅ GAMES
         const games = history.length;
         setGamesPlayed(games);
 
+        // ✅ BEST SCORE
         const best = history.length
-          ? Math.max(...history.map((h) => h.score))
+          ? Math.max(...history.map((h) => h.score || 0))
           : 0;
 
         setBestScore(best);
 
-        // 🔥 SAVE BEST SCORE (SYNC GLOBAL)
-        await AsyncStorage.setItem("BEST_SCORE", String(best));
-        await AsyncStorage.setItem("GAMES_PLAYED", String(games));
       } catch (e) {
-        console.log(e);
+        console.log("RESULT ERROR:", e);
       }
     };
 
     loadStats();
   }, []);
 
-  // 🧠 MESSAGE DYNAMIQUE
+  // 🧠 MESSAGE
   useEffect(() => {
     if (money < 200) setMessage("😅 Continue, tu progresses !");
     else if (money < 500) setMessage("🔥 Bon niveau !");
