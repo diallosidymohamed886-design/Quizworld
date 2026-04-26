@@ -49,7 +49,6 @@ export default function Quiz() {
   const [streak, setStreak] = useState(0);
 
   const progressAnim = useRef(new Animated.Value(0)).current;
-  const rewardAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const timerRef = useRef(null);
@@ -57,7 +56,7 @@ export default function Quiz() {
 
   const current = QUESTIONS[index];
 
-  // 🔒 sécurité si data cassée
+  // 🔒 sécurité
   if (!current) return null;
 
   // 🔀 Shuffle
@@ -74,7 +73,7 @@ export default function Quiz() {
     }).start();
   }, [index]);
 
-  // ⏱ TIMER SAFE
+  // ⏱ TIMER
   useEffect(() => {
     if (gameOver) return;
 
@@ -109,12 +108,17 @@ export default function Quiz() {
     return () => clearTimeout(timerRef.current);
   }, [time, gameOver]);
 
+  // CLEANUP GLOBAL
+  useEffect(() => {
+    return () => clearTimeout(timerRef.current);
+  }, []);
+
   // ADS
   useEffect(() => {
     interstitial.load();
   }, []);
 
-  // 🔊 SOUND SAFE
+  // 🔊 SOUND
   const playSound = async (type) => {
     try {
       const { sound } = await Audio.Sound.createAsync(
@@ -135,7 +139,7 @@ export default function Quiz() {
 
   // 💔 PERTE VIE
   const loseLife = async () => {
-    if (gameOver) return;
+    if (gameOver || isEnding.current) return;
 
     clearTimeout(timerRef.current);
 
@@ -171,23 +175,25 @@ export default function Quiz() {
   const saveHistory = async () => {
     try {
       const data = await AsyncStorage.getItem("HISTORY");
-      let history = [];
 
-      if (data) {
-        try {
-          history = JSON.parse(data);
-        } catch {
-          history = [];
-        }
+      let history = [];
+      try {
+        history = data ? JSON.parse(data) : [];
+      } catch {
+        history = [];
       }
 
+      if (!Array.isArray(history)) history = [];
+
       history.push({
-        score: money,
+        score: money || 0,
         date: Date.now(),
       });
 
       await AsyncStorage.setItem("HISTORY", JSON.stringify(history));
-    } catch {}
+    } catch (e) {
+      console.log("Save error:", e);
+    }
   };
 
   // 🏁 FIN
@@ -198,20 +204,22 @@ export default function Quiz() {
     clearTimeout(timerRef.current);
 
     try {
-      if (Math.random() < 0.4) interstitial.show();
+      if (Math.random() < 0.4) {
+        interstitial.show();
+      }
     } catch {}
 
     await saveHistory();
 
     router.replace({
       pathname: "/results",
-      params: { money },
+      params: { money: money || 0 },
     });
   };
 
   // 🎯 REPONSE
   const handleAnswer = (option) => {
-    if (selected) return;
+    if (selected || isEnding.current) return;
 
     setSelected(option);
 
@@ -219,19 +227,6 @@ export default function Quiz() {
       if (option === current.answer) {
         await playSound("correct");
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-        Animated.sequence([
-          Animated.timing(rewardAnim, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(rewardAnim, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-        ]).start();
 
         const newStreak = streak + 1;
         setStreak(newStreak);
@@ -242,7 +237,6 @@ export default function Quiz() {
         if (newStreak >= 10) newCombo = 5;
 
         setCombo(newCombo);
-
         setMoney((m) => m + current.reward * newCombo);
 
         nextQuestion();
