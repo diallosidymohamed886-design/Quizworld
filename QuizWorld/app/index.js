@@ -24,6 +24,153 @@ const interstitial = InterstitialAd.createForAdRequest(
   "ca-app-pub-5350081816144613/1045376590"
 );
 
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const safeNumber = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const parseHistory = (raw) => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const getMean = (scores) => {
+  if (!scores.length) return 0;
+  return scores.reduce((sum, n) => sum + n, 0) / scores.length;
+};
+
+const getStdDev = (scores) => {
+  if (!scores.length) return 0;
+  const mean = getMean(scores);
+  const variance =
+    scores.reduce((sum, n) => sum + Math.pow(n - mean, 2), 0) / scores.length;
+  return Math.sqrt(variance);
+};
+
+const buildStatsFromHistory = (history) => {
+  const scores = history.map((item) => safeNumber(item?.score));
+  const best = scores.length ? Math.max(...scores) : 0;
+  const games = scores.length;
+  const first = scores.length ? scores[0] : 0;
+  const last = scores.length ? scores[scores.length - 1] : 0;
+  const average = getMean(scores);
+  const recentScores = scores.slice(-5);
+  const recentAverage = getMean(recentScores);
+  const deviation = getStdDev(scores);
+
+  // évolution récente : positif si les dernières parties montent
+  const trend = recentAverage - average;
+
+  // streak = série d'amélioration ou de bonnes performances récentes
+  let streak = 0;
+  for (let i = scores.length - 1; i >= 1; i--) {
+    if (scores[i] > scores[i - 1]) {
+      streak += 1;
+    } else {
+      break;
+    }
+  }
+  if (scores.length === 1 && scores[0] > 0) streak = 1;
+
+  // stabilité : plus l’écart type est faible, plus le joueur est régulier
+  const consistency = clamp(Math.round(180 - deviation * 0.4), 20, 180);
+
+  // progression globale entre la première et la dernière partie
+  const improvement = last - first;
+
+  return {
+    best,
+    games,
+    first,
+    last,
+    average,
+    recentAverage,
+    deviation,
+    trend,
+    streak,
+    consistency,
+    improvement,
+  };
+};
+
+const generateSmartLeaderboard = (stats) => {
+  const {
+    best,
+    games,
+    last,
+    average,
+    recentAverage,
+    trend,
+    streak,
+    consistency,
+    improvement,
+  } = stats;
+
+  const aiPlayers = [
+    {
+      name: "👑 TITAN",
+      score: clamp(
+        1300 + games * 18 + Math.max(0, trend) * 2 + streak * 30,
+        200,
+        99999
+      ),
+      boss: true,
+    },
+    {
+      name: "🔥 AlphaX",
+      score: clamp(1150 + average * 0.15 + consistency * 1.1, 150, 99999),
+    },
+    {
+      name: "⚡ BrainMax",
+      score: clamp(980 + recentAverage * 0.18 + games * 12, 100, 99999),
+    },
+    {
+      name: "🧠 Aicha",
+      score: clamp(820 + trend * 1.5 + last * 0.08, 80, 99999),
+    },
+    {
+      name: "🚀 Nova",
+      score: clamp(650 + streak * 45 + improvement * 0.1, 50, 99999),
+    },
+    {
+      name: "💎 Kamoudou",
+      score: clamp(500 + consistency * 0.8, 20, 99999),
+    },
+    {
+      name: "🎯 Mariame",
+      score: clamp(320 + improvement * 0.05 + games * 14, 0, 99999),
+    },
+    {
+      name: "📚 Neo",
+      score: clamp(180 + games * 20 + average * 0.08, 0, 99999),
+    },
+    {
+      name: "🎮 Rookie",
+      score: clamp(20 + games * 6 - Math.max(0, trend) * 0.2, -1000, 99999),
+    },
+  ];
+
+  const board = [
+    ...aiPlayers,
+    {
+      name: "🟢 TOI",
+      score: best,
+      you: true,
+    },
+  ]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+
+  return board;
+};
+
 export default function Home() {
   const router = useRouter();
 
@@ -33,86 +180,36 @@ export default function Home() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [bossBeaten, setBossBeaten] = useState(false);
 
+  const loadData = async () => {
+    try {
+      const raw = await AsyncStorage.getItem("HISTORY");
+      const history = parseHistory(raw).sort((a, b) => (a?.date || 0) - (b?.date || 0));
+
+      const stats = buildStatsFromHistory(history);
+
+      setBestScore(stats.best);
+      setGamesPlayed(stats.games);
+      setStreak(stats.streak);
+
+      const board = generateSmartLeaderboard(stats);
+      setLeaderboard(board);
+
+      const bossScore = board.find((player) => player.boss)?.score ?? 0;
+      const beatBoss = stats.best >= bossScore && stats.best > 0;
+
+      await AsyncStorage.setItem("BOSS_BEAT", beatBoss ? "true" : "false");
+      setBossBeaten(beatBoss);
+    } catch (e) {
+      console.log("LOAD ERROR:", e);
+    }
+  };
+
   // 🔥 REFRESH AUTO
   useFocusEffect(
     useCallback(() => {
       loadData();
     }, [])
   );
-
-  // 🧠 CLASSEMENT INTELLIGENT
-  const generateSmartLeaderboard = (userScore) => {
-    const base = Math.max(userScore, 300);
-
-    const aiPlayers = [
-      { name: "👑 TITAN", score: base + 1200, boss: true },
-      { name: "🔥 Sidy", score: base + 800 },
-      { name: "⚡ Alpha", score: base + 500 },
-      { name: "🧠 Aicha", score: base + 300 },
-      { name: "🚀 Nova", score: base + 150 },
-      { name: "💎 Kamoudou", score: base + 50 },
-      { name: "🎯 Mariame", score: base - 100 },
-      { name: "📚 Neo", score: base - 250 },
-      { name: "🎮 Rookie", score: base - 400 },
-    ];
-
-    return [...aiPlayers, { name: "🟢 TOI", score: userScore }]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
-  };
-
-  // 🧠 LOAD DATA FIX GLOBAL
-  const loadData = async () => {
-    try {
-      const raw = await AsyncStorage.getItem("HISTORY");
-
-      let history = [];
-      try {
-        history = raw ? JSON.parse(raw) : [];
-      } catch {
-        history = [];
-      }
-
-      if (!Array.isArray(history)) history = [];
-
-      // ✅ BEST SCORE
-      const best = history.length
-        ? Math.max(...history.map((h) => h.score || 0))
-        : 0;
-
-      // ✅ GAMES
-      const games = history.length;
-
-      // 🔥 STREAK LOGIQUE (parties réussies consécutives)
-      let currentStreak = 0;
-
-      for (let i = history.length - 1; i >= 0; i--) {
-        if ((history[i].score || 0) > 0) {
-          currentStreak++;
-        } else break;
-      }
-
-      setBestScore(best);
-      setGamesPlayed(games);
-      setStreak(currentStreak);
-
-      const board = generateSmartLeaderboard(best);
-
-      // 👑 BOSS CHECK SAFE
-      if (best >= board[0].score) {
-        await AsyncStorage.setItem("BOSS_BEAT", "true");
-        setBossBeaten(true);
-      } else {
-        const boss = await AsyncStorage.getItem("BOSS_BEAT");
-        setBossBeaten(boss === "true");
-      }
-
-      setLeaderboard(board);
-
-    } catch (e) {
-      console.log("LOAD ERROR:", e);
-    }
-  };
 
   // 💥 ADS SAFE
   useFocusEffect(
@@ -140,17 +237,32 @@ export default function Home() {
     return "Légende";
   };
 
+  const getRowStyle = (player, index) => {
+    if (player.boss) return styles.bossRow;
+    if (player.you) return styles.youRow;
+
+    if (index === 0) return styles.goldRow;
+    if (index === 1) return styles.silverRow;
+    if (index === 2) return styles.bronzeRow;
+
+    return styles.row;
+  };
+
+  const getRankColor = (index) => {
+    if (index === 0) return { color: "#FFD700" };
+    if (index === 1) return { color: "#C0C0C0" };
+    if (index === 2) return { color: "#CD7F32" };
+    return { color: "#9CA3AF" };
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: "#0A0F2C" }}>
       <ScrollView contentContainerStyle={styles.container}>
-        
         {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.logo}>🌍</Text>
           <Text style={styles.title}>QuizWorld</Text>
-          <Text style={styles.subtitle}>
-            Deviens le meilleur joueur
-          </Text>
+          <Text style={styles.subtitle}>Classement vivant et intelligent</Text>
 
           <TouchableOpacity
             style={styles.profileBtn}
@@ -178,21 +290,25 @@ export default function Home() {
 
         {/* CLASSEMENT */}
         <View style={styles.leaderboardBox}>
-          <Text style={styles.leaderboardTitle}>
-            🏆 Classement intelligent
+          <Text style={styles.leaderboardTitle}>🏆 Classement vivant</Text>
+          <Text style={styles.leaderboardSubtitle}>
+            Les positions évoluent selon les performances réelles
           </Text>
 
           {leaderboard.map((player, index) => (
             <View
-              key={index}
+              key={`${player.name}-${index}`}
               style={[
-                styles.row,
-                player.name === "🟢 TOI" && styles.youRow,
-                player.boss && styles.bossRow,
+                styles.rowBase,
+                getRowStyle(player, index),
               ]}
             >
-              <Text style={styles.rankNum}>#{index + 1}</Text>
+              <Text style={[styles.rankNum, getRankColor(index)]}>
+                #{index + 1}
+              </Text>
+
               <Text style={styles.playerName}>{player.name}</Text>
+
               <Text style={styles.score}>{player.score}</Text>
             </View>
           ))}
@@ -201,9 +317,7 @@ export default function Home() {
         {/* BOSS */}
         {bossBeaten && (
           <View style={styles.bossBox}>
-            <Text style={styles.bossText}>
-              👑 TU AS BATTU LE BOSS !
-            </Text>
+            <Text style={styles.bossText}>👑 TU AS BATTU LE BOSS !</Text>
           </View>
         )}
 
@@ -213,7 +327,6 @@ export default function Home() {
           <Text style={styles.info}>⚔️ Bats le boss</Text>
           <Text style={styles.info}>👑 Deviens numéro 1</Text>
         </View>
-
       </ScrollView>
 
       {/* BANNER */}
@@ -233,26 +346,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingBottom: 80,
   },
+
   header: {
     alignItems: "center",
     marginTop: 30,
     marginBottom: 20,
   },
+
   profileBtn: {
     position: "absolute",
     right: 0,
     top: 0,
   },
+
   logo: { fontSize: 70 },
+
   title: {
     fontSize: 42,
     color: "white",
     fontWeight: "bold",
   },
+
   subtitle: {
     color: "#9CA3AF",
     fontSize: 16,
+    marginTop: 4,
   },
+
   statsBox: {
     backgroundColor: "#111827",
     padding: 20,
@@ -262,11 +382,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     gap: 8,
   },
-  stat: { color: "#E5E7EB", fontSize: 18 },
+
+  stat: {
+    color: "#E5E7EB",
+    fontSize: 18,
+  },
+
   rank: {
     color: "#FFD700",
     fontWeight: "bold",
+    fontSize: 18,
   },
+
   playButton: {
     backgroundColor: "#FFD700",
     width: width * 0.9,
@@ -275,11 +402,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
+
   playText: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#000",
   },
+
   leaderboardBox: {
     width: "100%",
     backgroundColor: "#111827",
@@ -287,50 +416,97 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 20,
   },
+
   leaderboardTitle: {
     color: "white",
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 10,
+    marginBottom: 4,
   },
-  row: {
+
+  leaderboardSubtitle: {
+    color: "#9CA3AF",
+    fontSize: 13,
+    marginBottom: 12,
+  },
+
+  rowBase: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 6,
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 8,
   },
+
+  row: {
+    backgroundColor: "#111827",
+  },
+
+  goldRow: {
+    backgroundColor: "#2A1E00",
+  },
+
+  silverRow: {
+    backgroundColor: "#1C2330",
+  },
+
+  bronzeRow: {
+    backgroundColor: "#2A1A10",
+  },
+
   youRow: {
     backgroundColor: "#1E3A8A",
-    borderRadius: 10,
-    paddingHorizontal: 10,
   },
+
   bossRow: {
     backgroundColor: "#7C3AED",
-    borderRadius: 10,
+  },
+
+  rankNum: {
+    fontSize: 16,
+    fontWeight: "bold",
+    width: 42,
+  },
+
+  playerName: {
+    color: "white",
+    fontSize: 16,
+    flex: 1,
     paddingHorizontal: 10,
   },
-  rankNum: { color: "#9CA3AF" },
-  playerName: { color: "white" },
+
   score: {
     color: "#FFD700",
     fontWeight: "bold",
+    fontSize: 16,
   },
+
   bossBox: {
     backgroundColor: "#7C3AED",
     padding: 15,
     borderRadius: 15,
     marginBottom: 15,
+    width: "100%",
   },
+
   bossText: {
     color: "white",
     fontWeight: "bold",
     textAlign: "center",
   },
+
   infoBox: {
     alignItems: "center",
     gap: 8,
     marginBottom: 20,
   },
-  info: { color: "#E5E7EB" },
+
+  info: {
+    color: "#E5E7EB",
+  },
+
   banner: {
     position: "absolute",
     bottom: 0,
