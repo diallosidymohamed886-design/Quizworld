@@ -48,11 +48,19 @@ export default function Leaderboard() {
       .slice(0, 10);
   };
 
-  // 🔥 LOAD DATA
+  // 🔥 LOAD DATA SAFE
   const loadLeaderboard = async () => {
     try {
       const historyData = await AsyncStorage.getItem("HISTORY");
-      const history = historyData ? JSON.parse(historyData) : [];
+
+      let history = [];
+      if (historyData) {
+        try {
+          history = JSON.parse(historyData);
+        } catch {
+          history = [];
+        }
+      }
 
       const best = history.length
         ? Math.max(...history.map((h) => h.score))
@@ -74,31 +82,39 @@ export default function Leaderboard() {
     return { color: "white" };
   };
 
+  // 🔥 ITEM MEMO (performance)
+  const renderItem = ({ item, index }) => (
+    <View
+      style={[
+        styles.row,
+        item.name === "🟢 TOI" && styles.youRow,
+        item.boss && styles.bossRow,
+      ]}
+    >
+      <Text style={[styles.rank, getRankStyle(index)]}>
+        #{index + 1}
+      </Text>
+
+      <Text style={styles.name}>{item.name}</Text>
+
+      <Text style={styles.score}>💰 {item.score}</Text>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🏆 CLASSEMENT</Text>
 
-      <FlatList
-        data={data}
-        keyExtractor={(_, i) => i.toString()}
-        renderItem={({ item, index }) => (
-          <View
-            style={[
-              styles.row,
-              item.name === "🟢 TOI" && styles.youRow,
-              item.boss && styles.bossRow,
-            ]}
-          >
-            <Text style={[styles.rank, getRankStyle(index)]}>
-              #{index + 1}
-            </Text>
-
-            <Text style={styles.name}>{item.name}</Text>
-
-            <Text style={styles.score}>💰 {item.score}</Text>
-          </View>
-        )}
-      />
+      {data.length === 0 ? (
+        <Text style={styles.empty}>Aucun score pour le moment</Text>
+      ) : (
+        <FlatList
+          data={data}
+          keyExtractor={(item, index) => index.toString()}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       <TouchableOpacity
         style={styles.button}
@@ -123,6 +139,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 20,
+  },
+
+  empty: {
+    color: "#9CA3AF",
+    textAlign: "center",
+    marginTop: 20,
   },
 
   row: {
