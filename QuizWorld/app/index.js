@@ -33,7 +33,7 @@ export default function Home() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [bossBeaten, setBossBeaten] = useState(false);
 
-  // 🔥 REFRESH À CHAQUE RETOUR
+  // 🔥 REFRESH AUTO (IMPORTANT)
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -44,7 +44,7 @@ export default function Home() {
   const generateSmartLeaderboard = (userScore) => {
     const base = Math.max(userScore, 300);
 
-    const ai = [
+    const aiPlayers = [
       { name: "👑 TITAN", score: base + 1200, boss: true },
       { name: "🔥 AlphaX", score: base + 800 },
       { name: "⚡ BrainMax", score: base + 500 },
@@ -56,20 +56,29 @@ export default function Home() {
       { name: "🎮 Rookie", score: base - 400 },
     ];
 
-    const all = [...ai, { name: "🟢 TOI", score: userScore }];
+    const allPlayers = [
+      ...aiPlayers,
+      { name: "🟢 TOI", score: userScore },
+    ];
 
-    return all.sort((a, b) => b.score - a.score);
+    return allPlayers.sort((a, b) => b.score - a.score);
   };
 
+  // 🧠 LOAD DATA PRO
   const loadData = async () => {
     try {
       const historyData = await AsyncStorage.getItem("HISTORY");
       const history = historyData ? JSON.parse(historyData) : [];
 
-      const best = Math.max(...history.map((h) => h.score), 0);
+      // ✅ BEST SCORE
+      const best = history.length
+        ? Math.max(...history.map((h) => h.score))
+        : 0;
+
+      // ✅ GAMES
       const games = history.length;
 
-      // 🔥 STREAK CALCUL
+      // ✅ STREAK INTELLIGENT
       let currentStreak = 0;
       for (let i = history.length - 1; i > 0; i--) {
         if (history[i].score > history[i - 1].score) {
@@ -83,7 +92,7 @@ export default function Home() {
 
       const board = generateSmartLeaderboard(best);
 
-      // 👑 BOSS
+      // 👑 BOSS CHECK
       if (best >= board[0].score) {
         await AsyncStorage.setItem("BOSS_BEAT", "true");
         setBossBeaten(true);
@@ -98,7 +107,7 @@ export default function Home() {
     }
   };
 
-  // 💥 ADS
+  // 💥 ADS SAFE
   useFocusEffect(
     useCallback(() => {
       interstitial.load();
@@ -165,22 +174,23 @@ export default function Home() {
             🏆 Classement intelligent
           </Text>
 
-          {leaderboard.map((p, i) => (
+          {leaderboard.map((player, index) => (
             <View
-              key={i}
+              key={index}
               style={[
                 styles.row,
-                p.name === "🟢 TOI" && styles.youRow,
-                p.boss && styles.bossRow,
+                player.name === "🟢 TOI" && styles.youRow,
+                player.boss && styles.bossRow,
               ]}
             >
-              <Text style={styles.rankNum}>#{i + 1}</Text>
-              <Text style={styles.playerName}>{p.name}</Text>
-              <Text style={styles.score}>{p.score}</Text>
+              <Text style={styles.rankNum}>#{index + 1}</Text>
+              <Text style={styles.playerName}>{player.name}</Text>
+              <Text style={styles.score}>{player.score}</Text>
             </View>
           ))}
         </View>
 
+        {/* BOSS MESSAGE */}
         {bossBeaten && (
           <View style={styles.bossBox}>
             <Text style={styles.bossText}>
@@ -188,9 +198,16 @@ export default function Home() {
             </Text>
           </View>
         )}
+
+        {/* INFOS */}
+        <View style={styles.infoBox}>
+          <Text style={styles.info}>🔥 Monte dans le classement</Text>
+          <Text style={styles.info}>⚔️ Bats le boss</Text>
+          <Text style={styles.info}>👑 Deviens numéro 1</Text>
+        </View>
       </ScrollView>
 
-      {/* BANNER */}
+      {/* BANNER FIX */}
       <View style={styles.banner}>
         <BannerAd
           unitId="ca-app-pub-5350081816144613/9386901047"
@@ -200,3 +217,117 @@ export default function Home() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 20,
+    alignItems: "center",
+    paddingBottom: 80,
+  },
+  header: {
+    alignItems: "center",
+    marginTop: 30,
+    marginBottom: 20,
+  },
+  profileBtn: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  logo: { fontSize: 70 },
+  title: {
+    fontSize: 42,
+    color: "white",
+    fontWeight: "bold",
+  },
+  subtitle: {
+    color: "#9CA3AF",
+    fontSize: 16,
+  },
+  statsBox: {
+    backgroundColor: "#111827",
+    padding: 20,
+    borderRadius: 20,
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 20,
+    gap: 8,
+  },
+  stat: { color: "#E5E7EB", fontSize: 18 },
+  rank: {
+    color: "#FFD700",
+    fontWeight: "bold",
+  },
+  playButton: {
+    backgroundColor: "#FFD700",
+    width: width * 0.9,
+    paddingVertical: 24,
+    borderRadius: 30,
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  playText: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#000",
+  },
+  leaderboardBox: {
+    width: "100%",
+    backgroundColor: "#111827",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+  },
+  leaderboardTitle: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+  },
+  youRow: {
+    backgroundColor: "#1E3A8A",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+  },
+  bossRow: {
+    backgroundColor: "#7C3AED",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+  },
+  rankNum: { color: "#9CA3AF" },
+  playerName: { color: "white" },
+  score: {
+    color: "#FFD700",
+    fontWeight: "bold",
+  },
+  bossBox: {
+    backgroundColor: "#7C3AED",
+    padding: 15,
+    borderRadius: 15,
+    marginBottom: 15,
+  },
+  bossText: {
+    color: "white",
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  infoBox: {
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 20,
+  },
+  info: { color: "#E5E7EB" },
+  banner: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    alignItems: "center",
+    backgroundColor: "#0A0F2C",
+    paddingVertical: 5,
+  },
+});
