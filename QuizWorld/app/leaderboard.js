@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -22,55 +22,32 @@ export default function Leaderboard() {
     }, [])
   );
 
-  // 🧠 CLASSEMENT INTELLIGENT
-  const generateSmartLeaderboard = (userScore) => {
-    const base = Math.max(userScore, 300);
-
-    const aiPlayers = [
-      { name: "👑 TITAN", score: base + 1200, boss: true },
-      { name: "🔥 Sidy", score: base + 800 },
-      { name: "⚡ Alpha", score: base + 500 },
-      { name: "🧠 Aicha", score: base + 300 },
-      { name: "🚀 Nova", score: base + 150 },
-      { name: "💎 Kamoudou", score: base + 50 },
-      { name: "🎯 Mariame", score: base - 100 },
-      { name: "📚 Neo", score: base - 250 },
-      { name: "🎮 Rookie", score: base - 400 },
-    ];
-
-    const all = [
-      ...aiPlayers,
-      { name: "🟢 TOI", score: userScore },
-    ];
-
-    return all
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
-  };
-
-  // 🔥 LOAD DATA SAFE
+  // 🔥 LOAD DATA RÉEL
   const loadLeaderboard = async () => {
     try {
       const historyData = await AsyncStorage.getItem("HISTORY");
 
       let history = [];
-      if (historyData) {
-        try {
-          history = JSON.parse(historyData);
-        } catch {
-          history = [];
-        }
+      try {
+        history = historyData ? JSON.parse(historyData) : [];
+      } catch {
+        history = [];
       }
 
-      const best = history.length
-        ? Math.max(...history.map((h) => h.score))
-        : 0;
+      if (!Array.isArray(history)) history = [];
 
-      const board = generateSmartLeaderboard(best);
+      // 🔥 TRI PAR SCORE (TOP SCORES)
+      const sorted = history
+        .map((h, i) => ({
+          name: i === history.length - 1 ? "🟢 TOI" : `Joueur ${i + 1}`,
+          score: h.score || 0,
+        }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
 
-      setData(board);
+      setData(sorted);
     } catch (e) {
-      console.log(e);
+      console.log("LEADERBOARD ERROR:", e);
     }
   };
 
@@ -82,13 +59,12 @@ export default function Leaderboard() {
     return { color: "white" };
   };
 
-  // 🔥 ITEM MEMO (performance)
+  // 🎯 ITEM
   const renderItem = ({ item, index }) => (
     <View
       style={[
         styles.row,
         item.name === "🟢 TOI" && styles.youRow,
-        item.boss && styles.bossRow,
       ]}
     >
       <Text style={[styles.rank, getRankStyle(index)]}>
@@ -158,10 +134,6 @@ const styles = StyleSheet.create({
 
   youRow: {
     backgroundColor: "#1E3A8A",
-  },
-
-  bossRow: {
-    backgroundColor: "#7C3AED",
   },
 
   rank: {
