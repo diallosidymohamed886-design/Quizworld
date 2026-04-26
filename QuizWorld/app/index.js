@@ -46,8 +46,8 @@ export default function Home() {
 
     const aiPlayers = [
       { name: "👑 TITAN", score: base + 1200, boss: true },
-      { name: "🔥 AlphaX", score: base + 800 },
-      { name: "⚡ BrainMax", score: base + 500 },
+      { name: "🔥 Sidy", score: base + 800 },
+      { name: "⚡ Alpha", score: base + 500 },
       { name: "🧠 Aicha", score: base + 300 },
       { name: "🚀 Nova", score: base + 150 },
       { name: "💎 Kamoudou", score: base + 50 },
