@@ -24,7 +24,8 @@ export default function Results() {
   const params = useLocalSearchParams();
   const router = useRouter();
 
-  const money = parseInt(params.money || "0");
+  // 🔒 SAFE MONEY
+  const money = Number(params.money) || 0;
 
   const [message, setMessage] = useState("");
   const [bestScore, setBestScore] = useState(0);
@@ -55,12 +56,14 @@ export default function Results() {
     ]).start();
   }, []);
 
-  // 💥 ADS
+  // 💥 ADS SAFE
   useEffect(() => {
+    let isMounted = true;
+
     const unsub = interstitial.addAdEventListener(
       AdEventType.LOADED,
       () => {
-        if (Math.random() < 0.35) {
+        if (isMounted && Math.random() < 0.35) {
           try {
             interstitial.show();
           } catch {}
@@ -70,25 +73,39 @@ export default function Results() {
 
     interstitial.load();
 
-    return () => unsub();
+    return () => {
+      isMounted = false;
+      unsub();
+    };
   }, []);
 
-  // 🔥 LOAD FROM HISTORY (FIX PRINCIPAL)
+  // 💾 LOAD + SAVE STATS (ULTRA IMPORTANT)
   useEffect(() => {
     const loadStats = async () => {
       try {
         const data = await AsyncStorage.getItem("HISTORY");
-        const history = data ? JSON.parse(data) : [];
 
-        // ✅ nombre de parties
-        setGamesPlayed(history.length);
+        let history = [];
+        if (data) {
+          try {
+            history = JSON.parse(data);
+          } catch {
+            history = [];
+          }
+        }
 
-        // ✅ meilleur score
+        const games = history.length;
+        setGamesPlayed(games);
+
         const best = history.length
           ? Math.max(...history.map((h) => h.score))
           : 0;
 
         setBestScore(best);
+
+        // 🔥 SAVE BEST SCORE (SYNC GLOBAL)
+        await AsyncStorage.setItem("BEST_SCORE", String(best));
+        await AsyncStorage.setItem("GAMES_PLAYED", String(games));
       } catch (e) {
         console.log(e);
       }
@@ -97,7 +114,7 @@ export default function Results() {
     loadStats();
   }, []);
 
-  // 🧠 MESSAGE
+  // 🧠 MESSAGE DYNAMIQUE
   useEffect(() => {
     if (money < 200) setMessage("😅 Continue, tu progresses !");
     else if (money < 500) setMessage("🔥 Bon niveau !");
@@ -161,7 +178,7 @@ export default function Results() {
         </TouchableOpacity>
       </View>
 
-      {/* BANNER */}
+      {/* 📢 BANNER */}
       <View style={styles.banner}>
         <BannerAd
           unitId="ca-app-pub-5350081816144613/9386901047"
@@ -177,26 +194,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#0A0F2C",
   },
+
   content: {
     flex: 1,
     justifyContent: "center",
     padding: 20,
   },
+
   header: {
     alignItems: "center",
     marginBottom: 10,
   },
+
   title: {
     color: "#6B7280",
     fontSize: 14,
     letterSpacing: 2,
   },
+
   score: {
     fontSize: 72,
     color: "#FFD700",
     fontWeight: "bold",
     marginTop: 10,
   },
+
   message: {
     color: "white",
     fontSize: 20,
@@ -204,11 +226,13 @@ const styles = StyleSheet.create({
     marginVertical: 20,
     fontWeight: "600",
   },
+
   statsBox: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 25,
   },
+
   statCard: {
     backgroundColor: "#111827",
     padding: 20,
@@ -217,16 +241,19 @@ const styles = StyleSheet.create({
     width: "48%",
     elevation: 5,
   },
+
   statLabel: {
     color: "#9CA3AF",
     fontSize: 14,
   },
+
   statValue: {
     color: "white",
     fontSize: 24,
     fontWeight: "bold",
     marginTop: 5,
   },
+
   buttonPrimary: {
     backgroundColor: "#2563EB",
     padding: 20,
@@ -234,12 +261,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     elevation: 6,
   },
+
   buttonText: {
     color: "white",
     fontWeight: "bold",
     fontSize: 18,
     letterSpacing: 1,
   },
+
   banner: {
     alignItems: "center",
     marginBottom: 10,
