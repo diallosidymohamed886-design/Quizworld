@@ -61,7 +61,7 @@ export default function Home() {
       .slice(0, 10);
   };
 
-  // 🧠 LOAD DATA PRO
+  // 🧠 LOAD DATA FIX GLOBAL
   const loadData = async () => {
     try {
       const raw = await AsyncStorage.getItem("HISTORY");
@@ -73,22 +73,21 @@ export default function Home() {
         history = [];
       }
 
-      // 🔥 TRI PAR DATE
-      history.sort((a, b) => a.date - b.date);
+      if (!Array.isArray(history)) history = [];
 
       // ✅ BEST SCORE
       const best = history.length
-        ? Math.max(...history.map((h) => h.score))
+        ? Math.max(...history.map((h) => h.score || 0))
         : 0;
 
       // ✅ GAMES
       const games = history.length;
 
-      // 🔥 STREAK INTELLIGENT (progression réelle)
+      // 🔥 STREAK LOGIQUE (parties réussies consécutives)
       let currentStreak = 0;
 
-      for (let i = history.length - 1; i > 0; i--) {
-        if (history[i].score > history[i - 1].score) {
+      for (let i = history.length - 1; i >= 0; i--) {
+        if ((history[i].score || 0) > 0) {
           currentStreak++;
         } else break;
       }
@@ -99,7 +98,7 @@ export default function Home() {
 
       const board = generateSmartLeaderboard(best);
 
-      // 👑 BOSS CHECK
+      // 👑 BOSS CHECK SAFE
       if (best >= board[0].score) {
         await AsyncStorage.setItem("BOSS_BEAT", "true");
         setBossBeaten(true);
@@ -109,6 +108,7 @@ export default function Home() {
       }
 
       setLeaderboard(board);
+
     } catch (e) {
       console.log("LOAD ERROR:", e);
     }
