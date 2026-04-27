@@ -30,6 +30,7 @@ export default function Results() {
   const [message, setMessage] = useState("");
   const [bestScore, setBestScore] = useState(0);
   const [gamesPlayed, setGamesPlayed] = useState(0);
+  const [isNewRecord, setIsNewRecord] = useState(false); // 🔥 NEW
 
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const scoreAnim = useRef(new Animated.Value(0)).current;
@@ -94,16 +95,19 @@ export default function Results() {
 
         if (!Array.isArray(history)) history = [];
 
-        // ✅ GAMES
         const games = history.length;
         setGamesPlayed(games);
 
-        // ✅ BEST SCORE
         const best = history.length
           ? Math.max(...history.map((h) => h.score || 0))
           : 0;
 
         setBestScore(best);
+
+        // 🔥 NEW RECORD DETECTION
+        if (money > best) {
+          setIsNewRecord(true);
+        }
 
       } catch (e) {
         console.log("RESULT ERROR:", e);
@@ -113,13 +117,21 @@ export default function Results() {
     loadStats();
   }, []);
 
-  // 🧠 MESSAGE
+  // 🧠 MESSAGE INTELLIGENT
   useEffect(() => {
-    if (money < 200) setMessage("😅 Continue, tu progresses !");
-    else if (money < 500) setMessage("🔥 Bon niveau !");
-    else if (money < 1000) setMessage("🚀 Très fort !");
-    else if (money < 2000) setMessage("💎 Élites !");
-    else setMessage("👑 LÉGENDE VIVANTE !");
+    if (money === 0) {
+      setMessage("😅 Essaie encore !");
+    } else if (money < 200) {
+      setMessage("📈 Tu progresses !");
+    } else if (money < 500) {
+      setMessage("🔥 Bon niveau !");
+    } else if (money < 1000) {
+      setMessage("🚀 Très fort !");
+    } else if (money < 2000) {
+      setMessage("💎 Elite !");
+    } else {
+      setMessage("👑 LÉGENDE VIVANTE !");
+    }
   }, [money]);
 
   const scoreScale = scoreAnim.interpolate({
@@ -151,6 +163,11 @@ export default function Results() {
           </Animated.Text>
         </Animated.View>
 
+        {/* 🔥 NEW RECORD */}
+        {isNewRecord && (
+          <Text style={styles.newRecord}>🎉 NOUVEAU RECORD !</Text>
+        )}
+
         {/* MESSAGE */}
         <Text style={styles.message}>{message}</Text>
 
@@ -167,14 +184,22 @@ export default function Results() {
           </View>
         </View>
 
-        {/* BOUTON */}
+        {/* ACTIONS */}
         <TouchableOpacity
           activeOpacity={0.85}
           style={styles.buttonPrimary}
-          onPress={() => router.replace("/")}
+          onPress={() => router.replace("/quiz")}
         >
           <Text style={styles.buttonText}>REJOUER</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.buttonSecondary}
+          onPress={() => router.replace("/")}
+        >
+          <Text style={styles.buttonText}>Accueil</Text>
+        </TouchableOpacity>
+
       </View>
 
       {/* 📢 BANNER */}
@@ -218,6 +243,14 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 
+  newRecord: {
+    color: "#22C55E",
+    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 10,
+  },
+
   message: {
     color: "white",
     fontSize: 20,
@@ -238,7 +271,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     width: "48%",
-    elevation: 5,
   },
 
   statLabel: {
@@ -258,14 +290,20 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 25,
     alignItems: "center",
-    elevation: 6,
+    marginBottom: 10,
+  },
+
+  buttonSecondary: {
+    backgroundColor: "#374151",
+    padding: 15,
+    borderRadius: 20,
+    alignItems: "center",
   },
 
   buttonText: {
     color: "white",
     fontWeight: "bold",
     fontSize: 18,
-    letterSpacing: 1,
   },
 
   banner: {
