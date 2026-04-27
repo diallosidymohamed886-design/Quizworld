@@ -10,7 +10,18 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 
-// ================== UTILS (IDENTIQUE HOME) ==================
+const AI_NAMES = [
+  "👑 TITAN",
+  "🔥 Sidy",
+  "⚡ Alpha",
+  "🧠 Aicha",
+  "🚀 Nova",
+  "💎 Kamoudou",
+  "🎯 Mariame",
+  "📚 Neo",
+  "🎮 Rookie",
+];
+
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 const safeNumber = (value) => {
@@ -28,31 +39,27 @@ const parseHistory = (raw) => {
   }
 };
 
-const getMean = (scores) => {
-  if (!scores.length) return 0;
-  return scores.reduce((sum, n) => sum + n, 0) / scores.length;
-};
-
-const getStdDev = (scores) => {
-  if (!scores.length) return 0;
-  const mean = getMean(scores);
-  const variance =
-    scores.reduce((sum, n) => sum + Math.pow(n - mean, 2), 0) / scores.length;
-  return Math.sqrt(variance);
-};
-
+// 🔥 STATS BASÉES SUR 25 DERNIÈRES PARTIES
 const buildStatsFromHistory = (history) => {
   const scores = history.map((item) => safeNumber(item?.score));
+
   const best = scores.length ? Math.max(...scores) : 0;
   const games = scores.length;
-  const first = scores.length ? scores[0] : 0;
-  const last = scores.length ? scores[scores.length - 1] : 0;
-  const average = getMean(scores);
-  const recentScores = scores.slice(-5);
-  const recentAverage = getMean(recentScores);
-  const deviation = getStdDev(scores);
 
-  const trend = recentAverage - average;
+  const first = scores[0] || 0;
+  const last = scores[scores.length - 1] || 0;
+
+  const average =
+    scores.length > 0
+      ? scores.reduce((sum, n) => sum + n, 0) / scores.length
+      : 0;
+
+  const recentScores = scores.slice(-5);
+  const recentAverage =
+    recentScores.length > 0
+      ? recentScores.reduce((sum, n) => sum + n, 0) /
+        recentScores.length
+      : 0;
 
   let streak = 0;
   for (let i = scores.length - 1; i >= 1; i--) {
@@ -60,82 +67,20 @@ const buildStatsFromHistory = (history) => {
     else break;
   }
 
-  const consistency = clamp(Math.round(180 - deviation * 0.4), 20, 180);
   const improvement = last - first;
+  const trend = recentAverage - average;
 
   return {
     best,
     games,
-    last,
     average,
     recentAverage,
-    trend,
     streak,
-    consistency,
     improvement,
+    trend,
   };
 };
 
-const generateSmartLeaderboard = (stats) => {
-  const {
-    best,
-    games,
-    last,
-    average,
-    recentAverage,
-    trend,
-    streak,
-    consistency,
-    improvement,
-  } = stats;
-
-  const aiPlayers = [
-    {
-      name: "👑 TITAN",
-      score: clamp(1300 + games * 18 + trend * 2 + streak * 30, 200, 99999),
-      boss: true,
-    },
-    {
-      name: "🔥 AlphaX",
-      score: clamp(1150 + average * 0.15 + consistency, 150, 99999),
-    },
-    {
-      name: "⚡ BrainMax",
-      score: clamp(980 + recentAverage * 0.18 + games * 12, 100, 99999),
-    },
-    {
-      name: "🧠 Aicha",
-      score: clamp(820 + trend * 1.5 + last * 0.08, 80, 99999),
-    },
-    {
-      name: "🚀 Nova",
-      score: clamp(650 + streak * 45 + improvement * 0.1, 50, 99999),
-    },
-    {
-      name: "💎 Kamoudou",
-      score: clamp(500 + consistency * 0.8, 20, 99999),
-    },
-    {
-      name: "🎯 Mariame",
-      score: clamp(320 + improvement * 0.05 + games * 14, 0, 99999),
-    },
-    {
-      name: "📚 Neo",
-      score: clamp(180 + games * 20 + average * 0.08, 0, 99999),
-    },
-    {
-      name: "🎮 Rookie",
-      score: clamp(20 + games * 6 - trend * 0.2, -1000, 99999),
-    },
-  ];
-
-  return [
-    ...aiPlayers,
-    { name: "🟢 TOI", score: best, you: true },
-  ].sort((a, b) => b.score - a.score);
-};
-
-// ================== COMPONENT ==================
 export default function Leaderboard() {
   const router = useRouter();
   const [data, setData] = useState([]);
@@ -146,15 +91,107 @@ export default function Leaderboard() {
     }, [])
   );
 
+  const createAIPlayers = (userScore) => {
+    const base = Math.max(userScore, 300);
+
+    return [
+      { name: "👑 TITAN", score: base + 1200, boss: true },
+      { name: "🔥 Sidy", score: base + 850 },
+      { name: "⚡ Alpha", score: base + 620 },
+      { name: "🧠 Aicha", score: base + 420 },
+      { name: "🚀 Nova", score: base + 260 },
+      { name: "💎 Kamoudou", score: base + 120 },
+      { name: "🎯 Mariame", score: base - 40 },
+      { name: "📚 Neo", score: base - 180 },
+      { name: "🎮 Rookie", score: base - 320 },
+    ].map((p) => ({
+      ...p,
+      score: Math.max(0, Math.round(p.score)),
+    }));
+  };
+
+  const evolveScores = (players, stats, userScore) => {
+    return players.map((player) => {
+      if (player.name === "🟢 TOI") {
+        return { ...player, score: userScore };
+      }
+
+      const pressure = userScore - player.score;
+
+      let variation =
+        Math.random() * 120 - 60 +
+        pressure * 0.08 +
+        stats.trend * 0.1 +
+        stats.streak * 10;
+
+      if (player.boss) variation *= 0.5;
+
+      return {
+        ...player,
+        score: Math.max(0, Math.round(player.score + variation)),
+      };
+    });
+  };
+
   const loadLeaderboard = async () => {
     try {
       const raw = await AsyncStorage.getItem("HISTORY");
-      const history = parseHistory(raw);
+      let history = parseHistory(raw);
+
+      // 🔥 LIMITE AUX 25 DERNIÈRES PARTIES
+      history = history.slice(-25);
 
       const stats = buildStatsFromHistory(history);
-      const board = generateSmartLeaderboard(stats);
+      const userScore = stats.best;
 
-      setData(board);
+      const savedBoard = await AsyncStorage.getItem("LEADERBOARD_STATE");
+
+      let aiPlayers = [];
+
+      if (savedBoard) {
+        try {
+          const parsed = JSON.parse(savedBoard);
+          aiPlayers = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          aiPlayers = [];
+        }
+      }
+
+      const defaultAIs = createAIPlayers(userScore);
+
+      const aiMap = new Map();
+      [...defaultAIs, ...aiPlayers].forEach((p) => {
+        if (p?.name && p.name !== "🟢 TOI") {
+          aiMap.set(p.name, {
+            name: p.name,
+            score: safeNumber(p.score),
+            boss: !!p.boss,
+          });
+        }
+      });
+
+      aiPlayers = AI_NAMES.map((name) => {
+        return (
+          aiMap.get(name) ||
+          defaultAIs.find((p) => p.name === name)
+        );
+      });
+
+      aiPlayers = evolveScores(aiPlayers, stats, userScore)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 9);
+
+      const finalBoard = [
+        ...aiPlayers,
+        { name: "🟢 TOI", score: userScore, you: true },
+      ].sort((a, b) => b.score - a.score);
+
+      setData(finalBoard);
+
+      await AsyncStorage.setItem(
+        "LEADERBOARD_STATE",
+        JSON.stringify(aiPlayers)
+      );
     } catch (e) {
       console.log("LEADERBOARD ERROR:", e);
     }
@@ -187,14 +224,14 @@ export default function Leaderboard() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🏆 CLASSEMENT GLOBAL</Text>
+      <Text style={styles.title}>🏆 CLASSEMENT VIVANT</Text>
 
       {data.length === 0 ? (
-        <Text style={styles.empty}>Aucun score pour le moment</Text>
+        <Text style={styles.empty}>Chargement...</Text>
       ) : (
         <FlatList
           data={data}
-          keyExtractor={(item, index) => index.toString()}
+          keyExtractor={(item, index) => `${item.name}-${index}`}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
         />
@@ -210,14 +247,12 @@ export default function Leaderboard() {
   );
 }
 
-// ================== STYLES ==================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0A0F2C",
     padding: 20,
   },
-
   title: {
     color: "white",
     fontSize: 28,
@@ -225,13 +260,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
   },
-
   empty: {
     color: "#9CA3AF",
     textAlign: "center",
     marginTop: 20,
   },
-
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -239,32 +272,30 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 15,
     marginBottom: 10,
+    alignItems: "center",
   },
-
   youRow: {
     backgroundColor: "#1E3A8A",
   },
-
   bossRow: {
     backgroundColor: "#7C3AED",
   },
-
   rank: {
     fontSize: 18,
     fontWeight: "bold",
+    width: 42,
   },
-
   name: {
     color: "white",
     fontSize: 16,
+    flex: 1,
+    paddingHorizontal: 10,
   },
-
   score: {
     color: "#FFD700",
     fontSize: 18,
     fontWeight: "bold",
   },
-
   button: {
     backgroundColor: "#2563EB",
     padding: 15,
@@ -272,7 +303,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 20,
   },
-
   buttonText: {
     color: "white",
     fontSize: 18,
