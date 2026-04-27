@@ -24,6 +24,7 @@ const interstitial = InterstitialAd.createForAdRequest(
   "ca-app-pub-5350081816144613/1045376590"
 );
 
+// ================= UTILS =================
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 const safeNumber = (value) => {
@@ -56,121 +57,41 @@ const getStdDev = (scores) => {
 
 const buildStatsFromHistory = (history) => {
   const scores = history.map((item) => safeNumber(item?.score));
+
   const best = scores.length ? Math.max(...scores) : 0;
   const games = scores.length;
-  const first = scores.length ? scores[0] : 0;
-  const last = scores.length ? scores[scores.length - 1] : 0;
+  const first = scores[0] || 0;
+  const last = scores[scores.length - 1] || 0;
+
   const average = getMean(scores);
   const recentScores = scores.slice(-5);
   const recentAverage = getMean(recentScores);
   const deviation = getStdDev(scores);
 
-  // évolution récente : positif si les dernières parties montent
   const trend = recentAverage - average;
 
-  // streak = série d'amélioration ou de bonnes performances récentes
   let streak = 0;
   for (let i = scores.length - 1; i >= 1; i--) {
-    if (scores[i] > scores[i - 1]) {
-      streak += 1;
-    } else {
-      break;
-    }
+    if (scores[i] > scores[i - 1]) streak++;
+    else break;
   }
-  if (scores.length === 1 && scores[0] > 0) streak = 1;
 
-  // stabilité : plus l’écart type est faible, plus le joueur est régulier
   const consistency = clamp(Math.round(180 - deviation * 0.4), 20, 180);
-
-  // progression globale entre la première et la dernière partie
   const improvement = last - first;
 
   return {
     best,
     games,
-    first,
-    last,
+    streak,
     average,
     recentAverage,
-    deviation,
     trend,
-    streak,
     consistency,
     improvement,
   };
 };
 
-const generateSmartLeaderboard = (stats) => {
-  const {
-    best,
-    games,
-    last,
-    average,
-    recentAverage,
-    trend,
-    streak,
-    consistency,
-    improvement,
-  } = stats;
-
-  const aiPlayers = [
-    {
-      name: "👑 TITAN",
-      score: clamp(
-        1300 + games * 18 + Math.max(0, trend) * 2 + streak * 30,
-        200,
-        99999
-      ),
-      boss: true,
-    },
-    {
-      name: "🔥 Sidy",
-      score: clamp(1150 + average * 0.15 + consistency * 1.1, 150, 99999),
-    },
-    {
-      name: "⚡ Alpha",
-      score: clamp(980 + recentAverage * 0.18 + games * 12, 100, 99999),
-    },
-    {
-      name: "🧠 Aicha",
-      score: clamp(820 + trend * 1.5 + last * 0.08, 80, 99999),
-    },
-    {
-      name: "🚀 Nova",
-      score: clamp(650 + streak * 45 + improvement * 0.1, 50, 99999),
-    },
-    {
-      name: "💎 Kamoudou",
-      score: clamp(500 + consistency * 0.8, 20, 99999),
-    },
-    {
-      name: "🎯 Mariame",
-      score: clamp(320 + improvement * 0.05 + games * 14, 0, 99999),
-    },
-    {
-      name: "📚 Neo",
-      score: clamp(180 + games * 20 + average * 0.08, 0, 99999),
-    },
-    {
-      name: "🎮 Rookie",
-      score: clamp(20 + games * 6 - Math.max(0, trend) * 0.2, -1000, 99999),
-    },
-  ];
-
-  const board = [
-    ...aiPlayers,
-    {
-      name: "🟢 TOI",
-      score: best,
-      you: true,
-    },
-  ]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 10);
-
-  return board;
-};
-
+// ================= COMPONENT =================
 export default function Home() {
   const router = useRouter();
 
@@ -183,7 +104,11 @@ export default function Home() {
   const loadData = async () => {
     try {
       const raw = await AsyncStorage.getItem("HISTORY");
-      const history = parseHistory(raw).sort((a, b) => (a?.date || 0) - (b?.date || 0));
+
+      // 🔥 LIMIT 25 + ORDER
+      let history = parseHistory(raw)
+        .sort((a, b) => (a?.date || 0) - (b?.date || 0))
+        .slice(-25);
 
       const stats = buildStatsFromHistory(history);
 
@@ -191,10 +116,36 @@ export default function Home() {
       setGamesPlayed(stats.games);
       setStreak(stats.streak);
 
-      const board = generateSmartLeaderboard(stats);
+      // 🔥 SYNC AVEC LEADERBOARD
+      let board;
+      const saved = await AsyncStorage.getItem("LEADERBOARD_STATE");
+
+      if (saved) {
+        try {
+          const aiPlayers = JSON.parse(saved);
+
+          board = [
+            ...aiPlayers,
+            { name: "🟢 TOI", score: stats.best, you: true },
+          ].sort((a, b) => b.score - a.score);
+        } catch {
+          board = [];
+        }
+      }
+
+      // fallback si aucun leaderboard
+      if (!board || board.length === 0) {
+        board = [
+          { name: "👑 TITAN", score: 1200, boss: true },
+          { name: "🔥 Alpha", score: 900 },
+          { name: "⚡ Nova", score: 700 },
+          { name: "🟢 TOI", score: stats.best, you: true },
+        ].sort((a, b) => b.score - a.score);
+      }
+
       setLeaderboard(board);
 
-      const bossScore = board.find((player) => player.boss)?.score ?? 0;
+      const bossScore = board.find((p) => p.boss)?.score ?? 0;
       const beatBoss = stats.best >= bossScore && stats.best > 0;
 
       await AsyncStorage.setItem("BOSS_BEAT", beatBoss ? "true" : "false");
@@ -204,14 +155,14 @@ export default function Home() {
     }
   };
 
-  // 🔥 REFRESH AUTO
+  // 🔄 REFRESH
   useFocusEffect(
     useCallback(() => {
       loadData();
     }, [])
   );
 
-  // 💥 ADS SAFE
+  // 📢 ADS
   useFocusEffect(
     useCallback(() => {
       interstitial.load();
@@ -258,6 +209,7 @@ export default function Home() {
   return (
     <View style={{ flex: 1, backgroundColor: "#0A0F2C" }}>
       <ScrollView contentContainerStyle={styles.container}>
+        
         {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.logo}>🌍</Text>
@@ -288,12 +240,9 @@ export default function Home() {
           <Text style={styles.playText}>JOUER</Text>
         </TouchableOpacity>
 
-        {/* CLASSEMENT */}
+        {/* LEADERBOARD */}
         <View style={styles.leaderboardBox}>
           <Text style={styles.leaderboardTitle}>🏆 Classement vivant</Text>
-          <Text style={styles.leaderboardSubtitle}>
-            Les positions évoluent selon les performances réelles
-          </Text>
 
           {leaderboard.map((player, index) => (
             <View
@@ -314,22 +263,13 @@ export default function Home() {
           ))}
         </View>
 
-        {/* BOSS */}
         {bossBeaten && (
           <View style={styles.bossBox}>
             <Text style={styles.bossText}>👑 TU AS BATTU LE BOSS !</Text>
           </View>
         )}
-
-        {/* INFOS */}
-        <View style={styles.infoBox}>
-          <Text style={styles.info}>🔥 Monte dans le classement</Text>
-          <Text style={styles.info}>⚔️ Bats le boss</Text>
-          <Text style={styles.info}>👑 Deviens numéro 1</Text>
-        </View>
       </ScrollView>
 
-      {/* BANNER */}
       <View style={styles.banner}>
         <BannerAd
           unitId="ca-app-pub-5350081816144613/9386901047"
@@ -340,6 +280,7 @@ export default function Home() {
   );
 }
 
+// ================= STYLES =================
 const styles = StyleSheet.create({
   container: {
     padding: 20,
@@ -417,94 +358,46 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  leaderboardTitle: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-
-  leaderboardSubtitle: {
-    color: "#9CA3AF",
-    fontSize: 13,
-    marginBottom: 12,
-  },
-
   rowBase: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    padding: 12,
     borderRadius: 12,
     marginBottom: 8,
   },
 
-  row: {
-    backgroundColor: "#111827",
-  },
-
-  goldRow: {
-    backgroundColor: "#2A1E00",
-  },
-
-  silverRow: {
-    backgroundColor: "#1C2330",
-  },
-
-  bronzeRow: {
-    backgroundColor: "#2A1A10",
-  },
-
-  youRow: {
-    backgroundColor: "#1E3A8A",
-  },
-
-  bossRow: {
-    backgroundColor: "#7C3AED",
-  },
+  goldRow: { backgroundColor: "#2A1E00" },
+  silverRow: { backgroundColor: "#1C2330" },
+  bronzeRow: { backgroundColor: "#2A1A10" },
+  youRow: { backgroundColor: "#1E3A8A" },
+  bossRow: { backgroundColor: "#7C3AED" },
 
   rankNum: {
-    fontSize: 16,
+    width: 40,
     fontWeight: "bold",
-    width: 42,
+    color: "#FFD700",
   },
 
   playerName: {
-    color: "white",
-    fontSize: 16,
     flex: 1,
-    paddingHorizontal: 10,
+    color: "white",
   },
 
   score: {
     color: "#FFD700",
     fontWeight: "bold",
-    fontSize: 16,
   },
 
   bossBox: {
     backgroundColor: "#7C3AED",
     padding: 15,
     borderRadius: 15,
-    marginBottom: 15,
-    width: "100%",
   },
 
   bossText: {
     color: "white",
-    fontWeight: "bold",
     textAlign: "center",
-  },
-
-  infoBox: {
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 20,
-  },
-
-  info: {
-    color: "#E5E7EB",
   },
 
   banner: {
@@ -512,7 +405,5 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: "100%",
     alignItems: "center",
-    backgroundColor: "#0A0F2C",
-    paddingVertical: 5,
   },
 });
