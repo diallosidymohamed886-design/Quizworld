@@ -22,6 +22,59 @@ const AI_NAMES = [
   "🎮 Rookie",
 ];
 
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const safeNumber = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const parseHistory = (raw) => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const buildStatsFromHistory = (history) => {
+  const scores = history.map((item) => safeNumber(item?.score));
+  const best = scores.length ? Math.max(...scores) : 0;
+  const games = scores.length;
+  const first = scores.length ? scores[0] : 0;
+  const last = scores.length ? scores[scores.length - 1] : 0;
+  const average = scores.length
+    ? scores.reduce((sum, n) => sum + n, 0) / scores.length
+    : 0;
+
+  const recentScores = scores.slice(-5);
+  const recentAverage = recentScores.length
+    ? recentScores.reduce((sum, n) => sum + n, 0) / recentScores.length
+    : 0;
+
+  let streak = 0;
+  for (let i = scores.length - 1; i >= 1; i--) {
+    if (scores[i] > scores[i - 1]) streak += 1;
+    else break;
+  }
+  if (scores.length === 1 && scores[0] > 0) streak = 1;
+
+  const improvement = last - first;
+  const trend = recentAverage - average;
+
+  return {
+    best,
+    games,
+    average,
+    recentAverage,
+    streak,
+    improvement,
+    trend,
+  };
+};
+
 export default function Leaderboard() {
   const router = useRouter();
   const [data, setData] = useState([]);
@@ -32,100 +85,168 @@ export default function Leaderboard() {
     }, [])
   );
 
-  // 🧠 IA BASE (dépend du joueur)
   const createAIPlayers = (userScore) => {
     const base = Math.max(userScore, 300);
 
-    return AI_NAMES.map((name, i) => ({
-      name,
-      score: base + (Math.random() * 400 - 200) + i * 50,
+    return [
+      { name: "👑 TITAN", score: base + 1200, boss: true },
+      { name: "🔥 Sidy", score: base + 850 },
+      { name: "⚡ Alpha", score: base + 620 },
+      { name: "🧠 Aicha", score: base + 420 },
+      { name: "🚀 Nova", score: base + 260 },
+      { name: "💎 Kamoudou", score: base + 120 },
+      { name: "🎯 Mariame", score: base - 40 },
+      { name: "📚 Neo", score: base - 180 },
+      { name: "🎮 Rookie", score: base - 320 },
+    ].map((p) => ({
+      ...p,
+      score: Math.max(0, Math.round(p.score)),
     }));
   };
 
-  // 🧠 EVOLUTION INTELLIGENTE
-  const evolveScores = (players, userScore) => {
-    return players.map((p) => {
-      if (p.name === "🟢 TOI") {
-        return { ...p, score: userScore };
+  const evolveScores = (players, stats, userScore) => {
+    return players.map((player) => {
+      if (player.name === "🟢 TOI") {
+        return { ...player, score: userScore };
       }
 
-      let variation = Math.floor(Math.random() * 150) - 50;
+      const roleMultiplier = player.boss
+        ? 0.35
+        : player.name === "🎮 Rookie"
+          ? 1.35
+          : player.name === "📚 Neo"
+            ? 1.2
+            : 1;
 
-      // IA adapte au joueur
-      if (p.score > userScore) variation -= 20;
-      if (p.score < userScore) variation += 40;
+      const pressure = userScore - player.score;
+      const performanceBoost =
+        stats.streak * 8 +
+        stats.trend * 0.08 +
+        stats.improvement * 0.02 +
+        stats.recentAverage * 0.01;
+
+      const baseVariation =
+        (Math.random() * 140 - 70) * roleMultiplier +
+        pressure * 0.08 +
+        performanceBoost;
+
+      let nextScore = player.score + baseVariation;
+
+      if (player.boss) {
+        nextScore += stats.games * 6;
+      }
+
+      if (player.name === "👑 TITAN") {
+        nextScore += 40 + stats.best * 0.03;
+      }
+
+      if (player.name === "🔥 Sidy") {
+        nextScore += stats.average * 0.04;
+      }
+
+      if (player.name === "⚡ Alpha") {
+        nextScore += stats.recentAverage * 0.05;
+      }
+
+      if (player.name === "🧠 Aicha") {
+        nextScore += stats.trend * 0.12;
+      }
+
+      if (player.name === "🚀 Nova") {
+        nextScore += stats.streak * 18;
+      }
+
+      if (player.name === "💎 Kamoudou") {
+        nextScore += stats.average * 0.02;
+      }
+
+      if (player.name === "🎯 Mariame") {
+        nextScore += stats.improvement * 0.03;
+      }
+
+      if (player.name === "📚 Neo") {
+        nextScore += stats.games * 10;
+      }
+
+      if (player.name === "🎮 Rookie") {
+        nextScore -= Math.max(0, stats.trend) * 0.1;
+      }
 
       return {
-        ...p,
-        score: Math.max(0, Math.floor(p.score + variation)),
+        ...player,
+        score: Math.max(0, Math.round(nextScore)),
       };
     });
   };
 
-  // 🔥 LOAD GLOBAL SYNCHRONISÉ
   const loadLeaderboard = async () => {
     try {
-      // 🔹 1. SOURCE UNIQUE → HISTORY
       const historyData = await AsyncStorage.getItem("HISTORY");
+      const history = parseHistory(historyData);
 
-      let history = [];
-      try {
-        history = historyData ? JSON.parse(historyData) : [];
-      } catch {
-        history = [];
-      }
+      const stats = buildStatsFromHistory(history);
+      const userScore = stats.best;
 
-      if (!Array.isArray(history)) history = [];
-
-      const userScore = history.length
-        ? Math.max(...history.map((h) => h.score || 0))
-        : 0;
-
-      // 🔹 2. LOAD IA STATE
       const savedBoard = await AsyncStorage.getItem("LEADERBOARD_STATE");
 
-      let players;
+      let aiPlayers = [];
 
       if (savedBoard) {
         try {
-          players = JSON.parse(savedBoard);
+          const parsed = JSON.parse(savedBoard);
+          aiPlayers = Array.isArray(parsed) ? parsed : [];
         } catch {
-          players = createAIPlayers(userScore);
+          aiPlayers = [];
         }
-      } else {
-        players = createAIPlayers(userScore);
       }
 
-      // 🔹 3. CLEAN + INSERT PLAYER
-      players = players.filter((p) => p.name !== "🟢 TOI");
+      const defaultAIs = createAIPlayers(userScore);
 
-      players.push({
-        name: "🟢 TOI",
-        score: userScore,
+      const aiMap = new Map();
+      [...defaultAIs, ...aiPlayers].forEach((player) => {
+        if (player?.name && player.name !== "🟢 TOI") {
+          if (!aiMap.has(player.name)) {
+            aiMap.set(player.name, {
+              name: player.name,
+              score: safeNumber(player.score),
+              boss: !!player.boss,
+            });
+          }
+        }
       });
 
-      // 🔹 4. EVOLUTION
-      players = evolveScores(players, userScore);
+      aiPlayers = AI_NAMES.map((name) => {
+        const existing = aiMap.get(name);
+        return (
+          existing || defaultAIs.find((p) => p.name === name) || {
+            name,
+            score: 0,
+          }
+        );
+      });
 
-      // 🔹 5. TRI FINAL
-      players.sort((a, b) => b.score - a.score);
+      aiPlayers = evolveScores(aiPlayers, stats, userScore);
 
-      const finalBoard = players.slice(0, 10);
+      aiPlayers = aiPlayers
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 9);
+
+      const finalBoard = [
+        ...aiPlayers,
+        { name: "🟢 TOI", score: userScore, you: true },
+      ].sort((a, b) => b.score - a.score);
 
       setData(finalBoard);
 
-      // 🔹 6. SAVE (persist IA)
       await AsyncStorage.setItem(
         "LEADERBOARD_STATE",
-        JSON.stringify(finalBoard)
+        JSON.stringify(aiPlayers)
       );
-
     } catch (e) {
       console.log("LEADERBOARD ERROR:", e);
     }
   };
 
-  // 🎨 STYLE
   const getRankStyle = (index) => {
     if (index === 0) return { color: "#FFD700" };
     if (index === 1) return { color: "#C0C0C0" };
@@ -137,12 +258,11 @@ export default function Leaderboard() {
     <View
       style={[
         styles.row,
-        item.name === "🟢 TOI" && styles.youRow,
+        item.you && styles.youRow,
+        item.boss && styles.bossRow,
       ]}
     >
-      <Text style={[styles.rank, getRankStyle(index)]}>
-        #{index + 1}
-      </Text>
+      <Text style={[styles.rank, getRankStyle(index)]}>#{index + 1}</Text>
 
       <Text style={styles.name}>{item.name}</Text>
 
@@ -159,7 +279,7 @@ export default function Leaderboard() {
       ) : (
         <FlatList
           data={data}
-          keyExtractor={(item, index) => index.toString()}
+          keyExtractor={(item, index) => `${item.name}-${index}`}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
         />
@@ -203,20 +323,28 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 15,
     marginBottom: 10,
+    alignItems: "center",
   },
 
   youRow: {
     backgroundColor: "#1E3A8A",
   },
 
+  bossRow: {
+    backgroundColor: "#7C3AED",
+  },
+
   rank: {
     fontSize: 18,
     fontWeight: "bold",
+    width: 42,
   },
 
   name: {
     color: "white",
     fontSize: 16,
+    flex: 1,
+    paddingHorizontal: 10,
   },
 
   score: {
