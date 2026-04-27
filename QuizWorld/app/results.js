@@ -26,45 +26,46 @@ export default function Leaderboard() {
   const router = useRouter();
   const [data, setData] = useState([]);
 
-  // 🔄 REFRESH
   useFocusEffect(
     useCallback(() => {
       loadLeaderboard();
     }, [])
   );
 
-  // 🧠 CRÉATION IA
-  const createAIPlayers = () => {
+  // 🧠 IA BASE (dépend du joueur)
+  const createAIPlayers = (userScore) => {
+    const base = Math.max(userScore, 300);
+
     return AI_NAMES.map((name, i) => ({
       name,
-      score: 300 + Math.floor(Math.random() * 500) + i * 50,
+      score: base + (Math.random() * 400 - 200) + i * 50,
     }));
   };
 
   // 🧠 EVOLUTION INTELLIGENTE
   const evolveScores = (players, userScore) => {
     return players.map((p) => {
-      if (p.name === "🟢 TOI") return { ...p, score: userScore };
+      if (p.name === "🟢 TOI") {
+        return { ...p, score: userScore };
+      }
 
-      // 🔥 IA évolue intelligemment
-      let variation = Math.floor(Math.random() * 200) - 80;
+      let variation = Math.floor(Math.random() * 150) - 50;
 
-      // IA forte monte plus
-      if (p.score > userScore) variation += 50;
-
-      // IA faible chute parfois
-      if (p.score < userScore) variation -= 20;
+      // IA adapte au joueur
+      if (p.score > userScore) variation -= 20;
+      if (p.score < userScore) variation += 40;
 
       return {
         ...p,
-        score: Math.max(0, p.score + variation),
+        score: Math.max(0, Math.floor(p.score + variation)),
       };
     });
   };
 
-  // 🔥 LOAD GLOBAL
+  // 🔥 LOAD GLOBAL SYNCHRONISÉ
   const loadLeaderboard = async () => {
     try {
+      // 🔹 1. SOURCE UNIQUE → HISTORY
       const historyData = await AsyncStorage.getItem("HISTORY");
 
       let history = [];
@@ -80,34 +81,40 @@ export default function Leaderboard() {
         ? Math.max(...history.map((h) => h.score || 0))
         : 0;
 
-      // 🔁 Charger ancien leaderboard
+      // 🔹 2. LOAD IA STATE
       const savedBoard = await AsyncStorage.getItem("LEADERBOARD_STATE");
 
       let players;
 
       if (savedBoard) {
-        players = JSON.parse(savedBoard);
+        try {
+          players = JSON.parse(savedBoard);
+        } catch {
+          players = createAIPlayers(userScore);
+        }
       } else {
-        players = createAIPlayers();
+        players = createAIPlayers(userScore);
       }
 
-      // ➕ Ajouter joueur
-      players = [
-        ...players.filter((p) => p.name !== "🟢 TOI"),
-        { name: "🟢 TOI", score: userScore },
-      ];
+      // 🔹 3. CLEAN + INSERT PLAYER
+      players = players.filter((p) => p.name !== "🟢 TOI");
 
-      // 🔥 EVOLUTION
+      players.push({
+        name: "🟢 TOI",
+        score: userScore,
+      });
+
+      // 🔹 4. EVOLUTION
       players = evolveScores(players, userScore);
 
-      // 🔥 TRI FINAL
+      // 🔹 5. TRI FINAL
       players.sort((a, b) => b.score - a.score);
 
       const finalBoard = players.slice(0, 10);
 
       setData(finalBoard);
 
-      // 💾 SAVE
+      // 🔹 6. SAVE (persist IA)
       await AsyncStorage.setItem(
         "LEADERBOARD_STATE",
         JSON.stringify(finalBoard)
@@ -126,7 +133,6 @@ export default function Leaderboard() {
     return { color: "white" };
   };
 
-  // 🎯 ITEM
   const renderItem = ({ item, index }) => (
     <View
       style={[
@@ -169,7 +175,6 @@ export default function Leaderboard() {
   );
 }
 
-// 🎨 STYLE
 const styles = StyleSheet.create({
   container: {
     flex: 1,
