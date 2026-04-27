@@ -1,313 +1,236 @@
-import { useEffect, useState, useRef } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
-  Animated,
+  FlatList,
+  TouchableOpacity,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 
-import {
-  BannerAd,
-  BannerAdSize,
-  InterstitialAd,
-  AdEventType,
-} from "react-native-google-mobile-ads";
+const AI_NAMES = [
+  "👑 TITAN",
+  "🔥 Sidy",
+  "⚡ Alpha",
+  "🧠 Aicha",
+  "🚀 Nova",
+  "💎 Kamoudou",
+  "🎯 Mariame",
+  "📚 Neo",
+  "🎮 Rookie",
+];
 
-const interstitial = InterstitialAd.createForAdRequest(
-  "ca-app-pub-5350081816144613/1045376590"
-);
-
-export default function Results() {
-  const params = useLocalSearchParams();
+export default function Leaderboard() {
   const router = useRouter();
+  const [data, setData] = useState([]);
 
-  // 🔒 SAFE MONEY
-  const money = Number(params.money) || 0;
+  // 🔄 REFRESH
+  useFocusEffect(
+    useCallback(() => {
+      loadLeaderboard();
+    }, [])
+  );
 
-  const [message, setMessage] = useState("");
-  const [bestScore, setBestScore] = useState(0);
-  const [gamesPlayed, setGamesPlayed] = useState(0);
-  const [isNewRecord, setIsNewRecord] = useState(false); // 🔥 NEW
+  // 🧠 CRÉATION IA
+  const createAIPlayers = () => {
+    return AI_NAMES.map((name, i) => ({
+      name,
+      score: 300 + Math.floor(Math.random() * 500) + i * 50,
+    }));
+  };
 
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const scoreAnim = useRef(new Animated.Value(0)).current;
+  // 🧠 EVOLUTION INTELLIGENTE
+  const evolveScores = (players, userScore) => {
+    return players.map((p) => {
+      if (p.name === "🟢 TOI") return { ...p, score: userScore };
 
-  // 🎬 ANIMATIONS
-  useEffect(() => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      friction: 6,
-    }).start();
+      // 🔥 IA évolue intelligemment
+      let variation = Math.floor(Math.random() * 200) - 80;
 
-    Animated.sequence([
-      Animated.timing(scoreAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scoreAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+      // IA forte monte plus
+      if (p.score > userScore) variation += 50;
 
-  // 💥 ADS SAFE
-  useEffect(() => {
-    let mounted = true;
+      // IA faible chute parfois
+      if (p.score < userScore) variation -= 20;
 
-    const unsub = interstitial.addAdEventListener(
-      AdEventType.LOADED,
-      () => {
-        if (mounted && Math.random() < 0.35) {
-          try {
-            interstitial.show();
-          } catch {}
-        }
-      }
-    );
+      return {
+        ...p,
+        score: Math.max(0, p.score + variation),
+      };
+    });
+  };
 
-    interstitial.load();
+  // 🔥 LOAD GLOBAL
+  const loadLeaderboard = async () => {
+    try {
+      const historyData = await AsyncStorage.getItem("HISTORY");
 
-    return () => {
-      mounted = false;
-      unsub();
-    };
-  }, []);
-
-  // 💾 LOAD STATS (SOURCE UNIQUE = HISTORY)
-  useEffect(() => {
-    const loadStats = async () => {
+      let history = [];
       try {
-        const data = await AsyncStorage.getItem("HISTORY");
-
-        let history = [];
-        try {
-          history = data ? JSON.parse(data) : [];
-        } catch {
-          history = [];
-        }
-
-        if (!Array.isArray(history)) history = [];
-
-        const games = history.length;
-        setGamesPlayed(games);
-
-        const best = history.length
-          ? Math.max(...history.map((h) => h.score || 0))
-          : 0;
-
-        setBestScore(best);
-
-        // 🔥 NEW RECORD DETECTION
-        if (money > best) {
-          setIsNewRecord(true);
-        }
-
-      } catch (e) {
-        console.log("RESULT ERROR:", e);
+        history = historyData ? JSON.parse(historyData) : [];
+      } catch {
+        history = [];
       }
-    };
 
-    loadStats();
-  }, []);
+      if (!Array.isArray(history)) history = [];
 
-  // 🧠 MESSAGE INTELLIGENT
-  useEffect(() => {
-    if (money === 0) {
-      setMessage("😅 Essaie encore !");
-    } else if (money < 200) {
-      setMessage("📈 Tu progresses !");
-    } else if (money < 500) {
-      setMessage("🔥 Bon niveau !");
-    } else if (money < 1000) {
-      setMessage("🚀 Très fort !");
-    } else if (money < 2000) {
-      setMessage("💎 Elite !");
-    } else {
-      setMessage("👑 LÉGENDE VIVANTE !");
+      const userScore = history.length
+        ? Math.max(...history.map((h) => h.score || 0))
+        : 0;
+
+      // 🔁 Charger ancien leaderboard
+      const savedBoard = await AsyncStorage.getItem("LEADERBOARD_STATE");
+
+      let players;
+
+      if (savedBoard) {
+        players = JSON.parse(savedBoard);
+      } else {
+        players = createAIPlayers();
+      }
+
+      // ➕ Ajouter joueur
+      players = [
+        ...players.filter((p) => p.name !== "🟢 TOI"),
+        { name: "🟢 TOI", score: userScore },
+      ];
+
+      // 🔥 EVOLUTION
+      players = evolveScores(players, userScore);
+
+      // 🔥 TRI FINAL
+      players.sort((a, b) => b.score - a.score);
+
+      const finalBoard = players.slice(0, 10);
+
+      setData(finalBoard);
+
+      // 💾 SAVE
+      await AsyncStorage.setItem(
+        "LEADERBOARD_STATE",
+        JSON.stringify(finalBoard)
+      );
+
+    } catch (e) {
+      console.log("LEADERBOARD ERROR:", e);
     }
-  }, [money]);
+  };
 
-  const scoreScale = scoreAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.2],
-  });
+  // 🎨 STYLE
+  const getRankStyle = (index) => {
+    if (index === 0) return { color: "#FFD700" };
+    if (index === 1) return { color: "#C0C0C0" };
+    if (index === 2) return { color: "#CD7F32" };
+    return { color: "white" };
+  };
+
+  // 🎯 ITEM
+  const renderItem = ({ item, index }) => (
+    <View
+      style={[
+        styles.row,
+        item.name === "🟢 TOI" && styles.youRow,
+      ]}
+    >
+      <Text style={[styles.rank, getRankStyle(index)]}>
+        #{index + 1}
+      </Text>
+
+      <Text style={styles.name}>{item.name}</Text>
+
+      <Text style={styles.score}>💰 {item.score}</Text>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      
-      <View style={styles.content}>
-        
-        {/* HEADER */}
-        <Animated.View
-          style={[
-            styles.header,
-            { transform: [{ scale: scaleAnim }] },
-          ]}
-        >
-          <Text style={styles.title}>RÉSULTAT</Text>
+      <Text style={styles.title}>🏆 CLASSEMENT VIVANT</Text>
 
-          <Animated.Text
-            style={[
-              styles.score,
-              { transform: [{ scale: scoreScale }] },
-            ]}
-          >
-            💰 {money}
-          </Animated.Text>
-        </Animated.View>
-
-        {/* 🔥 NEW RECORD */}
-        {isNewRecord && (
-          <Text style={styles.newRecord}>🎉 NOUVEAU RECORD !</Text>
-        )}
-
-        {/* MESSAGE */}
-        <Text style={styles.message}>{message}</Text>
-
-        {/* STATS */}
-        <View style={styles.statsBox}>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>🏆 Meilleur</Text>
-            <Text style={styles.statValue}>{bestScore}</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>🎮 Parties</Text>
-            <Text style={styles.statValue}>{gamesPlayed}</Text>
-          </View>
-        </View>
-
-        {/* ACTIONS */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.buttonPrimary}
-          onPress={() => router.replace("/quiz")}
-        >
-          <Text style={styles.buttonText}>REJOUER</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.buttonSecondary}
-          onPress={() => router.replace("/")}
-        >
-          <Text style={styles.buttonText}>Accueil</Text>
-        </TouchableOpacity>
-
-      </View>
-
-      {/* 📢 BANNER */}
-      <View style={styles.banner}>
-        <BannerAd
-          unitId="ca-app-pub-5350081816144613/9386901047"
-          size={BannerAdSize.BANNER}
+      {data.length === 0 ? (
+        <Text style={styles.empty}>Chargement...</Text>
+      ) : (
+        <FlatList
+          data={data}
+          keyExtractor={(item, index) => index.toString()}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
         />
-      </View>
+      )}
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => router.replace("/")}
+      >
+        <Text style={styles.buttonText}>Retour</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
+// 🎨 STYLE
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0A0F2C",
-  },
-
-  content: {
-    flex: 1,
-    justifyContent: "center",
     padding: 20,
-  },
-
-  header: {
-    alignItems: "center",
-    marginBottom: 10,
   },
 
   title: {
-    color: "#6B7280",
-    fontSize: 14,
-    letterSpacing: 2,
-  },
-
-  score: {
-    fontSize: 72,
-    color: "#FFD700",
-    fontWeight: "bold",
-    marginTop: 10,
-  },
-
-  newRecord: {
-    color: "#22C55E",
-    textAlign: "center",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 10,
-  },
-
-  message: {
     color: "white",
-    fontSize: 20,
+    fontSize: 28,
+    fontWeight: "bold",
     textAlign: "center",
-    marginVertical: 20,
-    fontWeight: "600",
+    marginBottom: 20,
   },
 
-  statsBox: {
+  empty: {
+    color: "#9CA3AF",
+    textAlign: "center",
+    marginTop: 20,
+  },
+
+  row: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 25,
-  },
-
-  statCard: {
     backgroundColor: "#111827",
-    padding: 20,
-    borderRadius: 20,
-    alignItems: "center",
-    width: "48%",
-  },
-
-  statLabel: {
-    color: "#9CA3AF",
-    fontSize: 14,
-  },
-
-  statValue: {
-    color: "white",
-    fontSize: 24,
-    fontWeight: "bold",
-    marginTop: 5,
-  },
-
-  buttonPrimary: {
-    backgroundColor: "#2563EB",
-    padding: 20,
-    borderRadius: 25,
-    alignItems: "center",
+    padding: 15,
+    borderRadius: 15,
     marginBottom: 10,
   },
 
-  buttonSecondary: {
-    backgroundColor: "#374151",
+  youRow: {
+    backgroundColor: "#1E3A8A",
+  },
+
+  rank: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+
+  name: {
+    color: "white",
+    fontSize: 16,
+  },
+
+  score: {
+    color: "#FFD700",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+
+  button: {
+    backgroundColor: "#2563EB",
     padding: 15,
     borderRadius: 20,
     alignItems: "center",
+    marginTop: 20,
   },
 
   buttonText: {
     color: "white",
-    fontWeight: "bold",
     fontSize: 18,
-  },
-
-  banner: {
-    alignItems: "center",
-    marginBottom: 10,
+    fontWeight: "bold",
   },
 });
