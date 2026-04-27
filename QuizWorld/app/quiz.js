@@ -25,7 +25,7 @@ const interstitial = InterstitialAd.createForAdRequest(
   "ca-app-pub-5350081816144613/1045376590"
 );
 
-// 🔀 SHUFFLE SAFE
+// 🔀 Shuffle safe
 const shuffleArray = (array) => {
   if (!Array.isArray(array)) return [];
   const arr = [...array];
@@ -55,18 +55,19 @@ export default function Quiz() {
 
   const timerRef = useRef(null);
   const isEnding = useRef(false);
+  const soundRef = useRef(null);
 
   const current = QUESTIONS[index];
 
-  // 🔒 sécurité data
-  if (!current || !current.options) return null;
+  // Sécurité si les données sont absentes
+  if (!current || !Array.isArray(current.options)) return null;
 
   // 🔀 Shuffle options
   useEffect(() => {
     setShuffledOptions(shuffleArray(current.options));
   }, [index]);
 
-  // 📊 Progress bar
+  // 📊 Progression
   useEffect(() => {
     Animated.timing(progressAnim, {
       toValue: (index + 1) / QUESTIONS.length,
@@ -75,7 +76,7 @@ export default function Quiz() {
     }).start();
   }, [index]);
 
-  // ⏱ TIMER ULTRA SAFE
+  // ⏱ Timer
   useEffect(() => {
     if (gameOver || isEnding.current) return;
 
@@ -110,36 +111,49 @@ export default function Quiz() {
     return () => clearTimeout(timerRef.current);
   }, [time, gameOver]);
 
-  // 🧹 CLEANUP GLOBAL
+  // Cleanup global
   useEffect(() => {
-    return () => clearTimeout(timerRef.current);
+    return () => {
+      clearTimeout(timerRef.current);
+      if (soundRef.current) {
+        soundRef.current.unloadAsync?.().catch(() => {});
+      }
+    };
   }, []);
 
-  // 📢 ADS LOAD
+  // Pub
   useEffect(() => {
     interstitial.load();
   }, []);
 
-  // 🔊 SOUND SAFE
+  // 🔊 Son
   const playSound = async (type) => {
     try {
-      const { sound } = await Audio.Sound.createAsync(
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync().catch(() => {});
+        soundRef.current = null;
+      }
+
+      const source =
         type === "correct"
           ? require("../assets/sounds/correct.mp3")
-          : require("../assets/sounds/wrong.mp3")
-      );
+          : require("../assets/sounds/wrong.mp3");
+
+      const { sound } = await Audio.Sound.createAsync(source);
+      soundRef.current = sound;
 
       await sound.playAsync();
 
       sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.didJustFinish) {
-          sound.unloadAsync();
+        if (status?.didJustFinish) {
+          sound.unloadAsync().catch(() => {});
+          if (soundRef.current === sound) soundRef.current = null;
         }
       });
     } catch {}
   };
 
-  // 💔 PERTE DE VIE
+  // 💔 Perte de vie
   const loseLife = async () => {
     if (gameOver || isEnding.current) return;
 
@@ -160,7 +174,7 @@ export default function Quiz() {
     }
   };
 
-  // ➡️ NEXT QUESTION
+  // ➡️ Question suivante
   const nextQuestion = () => {
     clearTimeout(timerRef.current);
 
@@ -173,7 +187,7 @@ export default function Quiz() {
     }
   };
 
-  // 💾 SAVE HISTORY (CRUCIAL POUR LE CLASSEMENT)
+  // 💾 Sauvegarde historique limité à 25
   const saveHistory = async () => {
     try {
       const data = await AsyncStorage.getItem("HISTORY");
@@ -192,13 +206,17 @@ export default function Quiz() {
         date: Date.now(),
       });
 
+      history = history
+        .sort((a, b) => b.date - a.date)
+        .slice(0, 25);
+
       await AsyncStorage.setItem("HISTORY", JSON.stringify(history));
     } catch (e) {
       console.log("Save error:", e);
     }
   };
 
-  // 🏁 FIN DE PARTIE
+  // 🏁 Fin
   const endGame = async () => {
     if (isEnding.current) return;
     isEnding.current = true;
@@ -217,7 +235,7 @@ export default function Quiz() {
     });
   };
 
-  // 🎯 REPONSE
+  // 🎯 Réponse
   const handleAnswer = (option) => {
     if (selected || isEnding.current) return;
 
@@ -237,7 +255,6 @@ export default function Quiz() {
         if (newStreak >= 10) newCombo = 5;
 
         setCombo(newCombo);
-
         setMoney((m) => m + (current.reward || 0) * newCombo);
 
         nextQuestion();
@@ -247,7 +264,7 @@ export default function Quiz() {
     }, 300);
   };
 
-  // 🔥 REVIVE
+  // 🔥 Continuer après Game Over
   const revive = () => {
     clearTimeout(timerRef.current);
 
@@ -264,7 +281,7 @@ export default function Quiz() {
 
   const danger = time <= 5;
 
-  // 💔 GAME OVER UI
+  // 💔 Game Over
   if (gameOver) {
     return (
       <View style={styles.overlay}>
@@ -340,7 +357,6 @@ export default function Quiz() {
   );
 }
 
-// ================= STYLES =================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0A0F2C" },
   top: { flex: 1, padding: 15, justifyContent: "center" },
