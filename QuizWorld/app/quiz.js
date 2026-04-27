@@ -25,7 +25,9 @@ const interstitial = InterstitialAd.createForAdRequest(
   "ca-app-pub-5350081816144613/1045376590"
 );
 
+// 🔀 SHUFFLE SAFE
 const shuffleArray = (array) => {
+  if (!Array.isArray(array)) return [];
   const arr = [...array];
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -56,15 +58,15 @@ export default function Quiz() {
 
   const current = QUESTIONS[index];
 
-  // 🔒 sécurité
-  if (!current) return null;
+  // 🔒 sécurité data
+  if (!current || !current.options) return null;
 
-  // 🔀 Shuffle
+  // 🔀 Shuffle options
   useEffect(() => {
     setShuffledOptions(shuffleArray(current.options));
   }, [index]);
 
-  // 📊 Progress
+  // 📊 Progress bar
   useEffect(() => {
     Animated.timing(progressAnim, {
       toValue: (index + 1) / QUESTIONS.length,
@@ -73,13 +75,13 @@ export default function Quiz() {
     }).start();
   }, [index]);
 
-  // ⏱ TIMER
+  // ⏱ TIMER ULTRA SAFE
   useEffect(() => {
-    if (gameOver) return;
+    if (gameOver || isEnding.current) return;
 
     clearTimeout(timerRef.current);
 
-    if (time === 0) {
+    if (time <= 0) {
       loseLife();
       return;
     }
@@ -90,12 +92,12 @@ export default function Quiz() {
       Animated.sequence([
         Animated.timing(scaleAnim, {
           toValue: 1.2,
-          duration: 200,
+          duration: 150,
           useNativeDriver: true,
         }),
         Animated.timing(scaleAnim, {
           toValue: 1,
-          duration: 200,
+          duration: 150,
           useNativeDriver: true,
         }),
       ]).start();
@@ -108,17 +110,17 @@ export default function Quiz() {
     return () => clearTimeout(timerRef.current);
   }, [time, gameOver]);
 
-  // CLEANUP GLOBAL
+  // 🧹 CLEANUP GLOBAL
   useEffect(() => {
     return () => clearTimeout(timerRef.current);
   }, []);
 
-  // ADS
+  // 📢 ADS LOAD
   useEffect(() => {
     interstitial.load();
   }, []);
 
-  // 🔊 SOUND
+  // 🔊 SOUND SAFE
   const playSound = async (type) => {
     try {
       const { sound } = await Audio.Sound.createAsync(
@@ -137,7 +139,7 @@ export default function Quiz() {
     } catch {}
   };
 
-  // 💔 PERTE VIE
+  // 💔 PERTE DE VIE
   const loseLife = async () => {
     if (gameOver || isEnding.current) return;
 
@@ -149,7 +151,7 @@ export default function Quiz() {
     setCombo(1);
     setStreak(0);
 
-    if (hearts - 1 <= 0) {
+    if (hearts <= 1) {
       setHearts(0);
       setGameOver(true);
     } else {
@@ -158,7 +160,7 @@ export default function Quiz() {
     }
   };
 
-  // ➡️ NEXT
+  // ➡️ NEXT QUESTION
   const nextQuestion = () => {
     clearTimeout(timerRef.current);
 
@@ -171,7 +173,7 @@ export default function Quiz() {
     }
   };
 
-  // 💾 SAVE HISTORY
+  // 💾 SAVE HISTORY (CRUCIAL POUR LE CLASSEMENT)
   const saveHistory = async () => {
     try {
       const data = await AsyncStorage.getItem("HISTORY");
@@ -186,7 +188,7 @@ export default function Quiz() {
       if (!Array.isArray(history)) history = [];
 
       history.push({
-        score: money || 0,
+        score: Number(money) || 0,
         date: Date.now(),
       });
 
@@ -196,7 +198,7 @@ export default function Quiz() {
     }
   };
 
-  // 🏁 FIN
+  // 🏁 FIN DE PARTIE
   const endGame = async () => {
     if (isEnding.current) return;
     isEnding.current = true;
@@ -204,16 +206,14 @@ export default function Quiz() {
     clearTimeout(timerRef.current);
 
     try {
-      if (Math.random() < 0.4) {
-        interstitial.show();
-      }
+      if (Math.random() < 0.4) interstitial.show();
     } catch {}
 
     await saveHistory();
 
     router.replace({
       pathname: "/results",
-      params: { money: money || 0 },
+      params: { money: Number(money) || 0 },
     });
   };
 
@@ -237,7 +237,8 @@ export default function Quiz() {
         if (newStreak >= 10) newCombo = 5;
 
         setCombo(newCombo);
-        setMoney((m) => m + current.reward * newCombo);
+
+        setMoney((m) => m + (current.reward || 0) * newCombo);
 
         nextQuestion();
       } else {
@@ -263,7 +264,7 @@ export default function Quiz() {
 
   const danger = time <= 5;
 
-  // 💔 GAME OVER
+  // 💔 GAME OVER UI
   if (gameOver) {
     return (
       <View style={styles.overlay}>
@@ -339,6 +340,7 @@ export default function Quiz() {
   );
 }
 
+// ================= STYLES =================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0A0F2C" },
   top: { flex: 1, padding: 15, justifyContent: "center" },
