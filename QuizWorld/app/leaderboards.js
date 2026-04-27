@@ -39,27 +39,33 @@ const parseHistory = (raw) => {
   }
 };
 
+// 🔥 STATS BASÉES SUR 25 DERNIÈRES PARTIES
 const buildStatsFromHistory = (history) => {
   const scores = history.map((item) => safeNumber(item?.score));
+
   const best = scores.length ? Math.max(...scores) : 0;
   const games = scores.length;
-  const first = scores.length ? scores[0] : 0;
-  const last = scores.length ? scores[scores.length - 1] : 0;
-  const average = scores.length
-    ? scores.reduce((sum, n) => sum + n, 0) / scores.length
-    : 0;
+
+  const first = scores[0] || 0;
+  const last = scores[scores.length - 1] || 0;
+
+  const average =
+    scores.length > 0
+      ? scores.reduce((sum, n) => sum + n, 0) / scores.length
+      : 0;
 
   const recentScores = scores.slice(-5);
-  const recentAverage = recentScores.length
-    ? recentScores.reduce((sum, n) => sum + n, 0) / recentScores.length
-    : 0;
+  const recentAverage =
+    recentScores.length > 0
+      ? recentScores.reduce((sum, n) => sum + n, 0) /
+        recentScores.length
+      : 0;
 
   let streak = 0;
   for (let i = scores.length - 1; i >= 1; i--) {
-    if (scores[i] > scores[i - 1]) streak += 1;
+    if (scores[i] > scores[i - 1]) streak++;
     else break;
   }
-  if (scores.length === 1 && scores[0] > 0) streak = 1;
 
   const improvement = last - first;
   const trend = recentAverage - average;
@@ -110,79 +116,30 @@ export default function Leaderboard() {
         return { ...player, score: userScore };
       }
 
-      const roleMultiplier = player.boss
-        ? 0.35
-        : player.name === "🎮 Rookie"
-          ? 1.35
-          : player.name === "📚 Neo"
-            ? 1.2
-            : 1;
-
       const pressure = userScore - player.score;
-      const performanceBoost =
-        stats.streak * 8 +
-        stats.trend * 0.08 +
-        stats.improvement * 0.02 +
-        stats.recentAverage * 0.01;
 
-      const baseVariation =
-        (Math.random() * 140 - 70) * roleMultiplier +
+      let variation =
+        Math.random() * 120 - 60 +
         pressure * 0.08 +
-        performanceBoost;
+        stats.trend * 0.1 +
+        stats.streak * 10;
 
-      let nextScore = player.score + baseVariation;
-
-      if (player.boss) {
-        nextScore += stats.games * 6;
-      }
-
-      if (player.name === "👑 TITAN") {
-        nextScore += 40 + stats.best * 0.03;
-      }
-
-      if (player.name === "🔥 Sidy") {
-        nextScore += stats.average * 0.04;
-      }
-
-      if (player.name === "⚡ Alpha") {
-        nextScore += stats.recentAverage * 0.05;
-      }
-
-      if (player.name === "🧠 Aicha") {
-        nextScore += stats.trend * 0.12;
-      }
-
-      if (player.name === "🚀 Nova") {
-        nextScore += stats.streak * 18;
-      }
-
-      if (player.name === "💎 Kamoudou") {
-        nextScore += stats.average * 0.02;
-      }
-
-      if (player.name === "🎯 Mariame") {
-        nextScore += stats.improvement * 0.03;
-      }
-
-      if (player.name === "📚 Neo") {
-        nextScore += stats.games * 10;
-      }
-
-      if (player.name === "🎮 Rookie") {
-        nextScore -= Math.max(0, stats.trend) * 0.1;
-      }
+      if (player.boss) variation *= 0.5;
 
       return {
         ...player,
-        score: Math.max(0, Math.round(nextScore)),
+        score: Math.max(0, Math.round(player.score + variation)),
       };
     });
   };
 
   const loadLeaderboard = async () => {
     try {
-      const historyData = await AsyncStorage.getItem("HISTORY");
-      const history = parseHistory(historyData);
+      const raw = await AsyncStorage.getItem("HISTORY");
+      let history = parseHistory(raw);
+
+      // 🔥 LIMITE AUX 25 DERNIÈRES PARTIES
+      history = history.slice(-25);
 
       const stats = buildStatsFromHistory(history);
       const userScore = stats.best;
@@ -203,31 +160,24 @@ export default function Leaderboard() {
       const defaultAIs = createAIPlayers(userScore);
 
       const aiMap = new Map();
-      [...defaultAIs, ...aiPlayers].forEach((player) => {
-        if (player?.name && player.name !== "🟢 TOI") {
-          if (!aiMap.has(player.name)) {
-            aiMap.set(player.name, {
-              name: player.name,
-              score: safeNumber(player.score),
-              boss: !!player.boss,
-            });
-          }
+      [...defaultAIs, ...aiPlayers].forEach((p) => {
+        if (p?.name && p.name !== "🟢 TOI") {
+          aiMap.set(p.name, {
+            name: p.name,
+            score: safeNumber(p.score),
+            boss: !!p.boss,
+          });
         }
       });
 
       aiPlayers = AI_NAMES.map((name) => {
-        const existing = aiMap.get(name);
         return (
-          existing || defaultAIs.find((p) => p.name === name) || {
-            name,
-            score: 0,
-          }
+          aiMap.get(name) ||
+          defaultAIs.find((p) => p.name === name)
         );
       });
 
-      aiPlayers = evolveScores(aiPlayers, stats, userScore);
-
-      aiPlayers = aiPlayers
+      aiPlayers = evolveScores(aiPlayers, stats, userScore)
         .sort((a, b) => b.score - a.score)
         .slice(0, 9);
 
@@ -262,7 +212,9 @@ export default function Leaderboard() {
         item.boss && styles.bossRow,
       ]}
     >
-      <Text style={[styles.rank, getRankStyle(index)]}>#{index + 1}</Text>
+      <Text style={[styles.rank, getRankStyle(index)]}>
+        #{index + 1}
+      </Text>
 
       <Text style={styles.name}>{item.name}</Text>
 
@@ -301,7 +253,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#0A0F2C",
     padding: 20,
   },
-
   title: {
     color: "white",
     fontSize: 28,
@@ -309,13 +260,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
   },
-
   empty: {
     color: "#9CA3AF",
     textAlign: "center",
     marginTop: 20,
   },
-
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -325,34 +274,28 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     alignItems: "center",
   },
-
   youRow: {
     backgroundColor: "#1E3A8A",
   },
-
   bossRow: {
     backgroundColor: "#7C3AED",
   },
-
   rank: {
     fontSize: 18,
     fontWeight: "bold",
     width: 42,
   },
-
   name: {
     color: "white",
     fontSize: 16,
     flex: 1,
     paddingHorizontal: 10,
   },
-
   score: {
     color: "#FFD700",
     fontSize: 18,
     fontWeight: "bold",
   },
-
   button: {
     backgroundColor: "#2563EB",
     padding: 15,
@@ -360,7 +303,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 20,
   },
-
   buttonText: {
     color: "white",
     fontSize: 18,
