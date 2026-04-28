@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "QuizWorld",
-    "slug": "QuizWorld",
+    "slug": "quizworld",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
@@ -10,11 +10,11 @@
 
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.sidy0102.quizworld"
+      "bundleIdentifier": "com.diallo6072.quizworld"
     },
 
     "android": {
-      "package": "com.sidy0102.quizworld",
+      "package": "com.diallo6072.quizworld",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#0A0F2C"
@@ -47,13 +47,6 @@
 
     "experiments": {
       "typedRoutes": true
-    },
-
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "61045210-30aa-413e-af48-0fd1e24b1dbb"
-      }
     }
   }
 }
