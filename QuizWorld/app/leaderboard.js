@@ -22,10 +22,10 @@ const AI_NAMES = [
   "🎮 Rookie",
 ];
 
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
-const safeNumber = (value) => {
-  const n = Number(value);
+const safeNumber = (v) => {
+  const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
 
@@ -39,27 +39,24 @@ const parseHistory = (raw) => {
   }
 };
 
-// 🔥 STATS BASÉES SUR 25 DERNIÈRES PARTIES
+// 🔥 STATS
 const buildStatsFromHistory = (history) => {
-  const scores = history.map((item) => safeNumber(item?.score));
+  const scores = history.map((h) => safeNumber(h?.score));
 
   const best = scores.length ? Math.max(...scores) : 0;
   const games = scores.length;
-
-  const first = scores[0] || 0;
-  const last = scores[scores.length - 1] || 0;
-
   const average =
     scores.length > 0
-      ? scores.reduce((sum, n) => sum + n, 0) / scores.length
+      ? scores.reduce((s, n) => s + n, 0) / scores.length
       : 0;
 
-  const recentScores = scores.slice(-5);
+  const recent = scores.slice(-5);
   const recentAverage =
-    recentScores.length > 0
-      ? recentScores.reduce((sum, n) => sum + n, 0) /
-        recentScores.length
+    recent.length > 0
+      ? recent.reduce((s, n) => s + n, 0) / recent.length
       : 0;
+
+  const trend = recentAverage - average;
 
   let streak = 0;
   for (let i = scores.length - 1; i >= 1; i--) {
@@ -67,18 +64,7 @@ const buildStatsFromHistory = (history) => {
     else break;
   }
 
-  const improvement = last - first;
-  const trend = recentAverage - average;
-
-  return {
-    best,
-    games,
-    average,
-    recentAverage,
-    streak,
-    improvement,
-    trend,
-  };
+  return { best, games, average, recentAverage, trend, streak };
 };
 
 export default function Leaderboard() {
@@ -91,44 +77,78 @@ export default function Leaderboard() {
     }, [])
   );
 
-  const createAIPlayers = (userScore) => {
-    const base = Math.max(userScore, 300);
+  // 🔥 IA ULTRA AMÉLIORÉE
+  const createAIPlayers = (stats) => {
+    const { best, games, average, recentAverage, streak } = stats;
+
+    const skill = best * 0.6 + average * 0.3 + recentAverage * 0.5;
 
     return [
-      { name: "👑 TITAN", score: base + 1200, boss: true },
-      { name: "🔥 Sidy", score: base + 850 },
-      { name: "⚡ Alpha", score: base + 620 },
-      { name: "🧠 Aicha", score: base + 420 },
-      { name: "🚀 Nova", score: base + 260 },
-      { name: "💎 Kamoudou", score: base + 120 },
-      { name: "🎯 Mariame", score: base - 40 },
-      { name: "📚 Neo", score: base - 180 },
-      { name: "🎮 Rookie", score: base - 320 },
+      {
+        name: "👑 TITAN",
+        score: clamp(
+          skill * 1.4 + 2000 + games * 50 + streak * 120,
+          1000,
+          999999
+        ),
+        boss: true,
+      },
+      {
+        name: "🔥 Sidy",
+        score: skill * 1.2 + 1200 + games * 25,
+      },
+      {
+        name: "⚡ Alpha",
+        score: skill * 1.1 + 900 + recentAverage * 0.6,
+      },
+      {
+        name: "🧠 Aicha",
+        score: skill * 1.05 + 700,
+      },
+      {
+        name: "🚀 Nova",
+        score: skill * 0.95 + streak * 200,
+      },
+      {
+        name: "💎 Kamoudou",
+        score: skill * 0.9 + average * 0.4,
+      },
+      {
+        name: "🎯 Mariame",
+        score: skill * 0.85 + games * 30,
+      },
+      {
+        name: "📚 Neo",
+        score: skill * 0.75 + games * 40,
+      },
+      {
+        name: "🎮 Rookie",
+        score: skill * 0.5 + 100,
+      },
     ].map((p) => ({
       ...p,
-      score: Math.max(0, Math.round(p.score)),
+      score: Math.round(Math.max(0, p.score)),
     }));
   };
 
+  // 🔥 ÉVOLUTION DYNAMIQUE
   const evolveScores = (players, stats, userScore) => {
-    return players.map((player) => {
-      if (player.name === "🟢 TOI") {
-        return { ...player, score: userScore };
-      }
+    return players.map((p) => {
+      if (p.name === "🟢 TOI") return p;
 
-      const pressure = userScore - player.score;
+      const pressure = userScore - p.score;
 
       let variation =
-        Math.random() * 120 - 60 +
-        pressure * 0.08 +
-        stats.trend * 0.1 +
-        stats.streak * 10;
+        Math.random() * 300 - 150 +
+        pressure * 0.15 +
+        stats.trend * 2 +
+        stats.streak * 40;
 
-      if (player.boss) variation *= 0.5;
+      if (p.boss) variation *= 0.6;
 
       return {
-        ...player,
-        score: Math.max(0, Math.round(player.score + variation)),
+        ...p,
+        score: Math.round(Math.max(0, p.score + variation)),
       };
     });
   };
@@ -136,46 +156,25 @@ export default function Leaderboard() {
   const loadLeaderboard = async () => {
     try {
       const raw = await AsyncStorage.getItem("HISTORY");
-      let history = parseHistory(raw);
-
-      // 🔥 LIMITE AUX 25 DERNIÈRES PARTIES
-      history = history.slice(-25);
+      let history = parseHistory(raw).slice(-25);
 
       const stats = buildStatsFromHistory(history);
       const userScore = stats.best;
 
-      const savedBoard = await AsyncStorage.getItem("LEADERBOARD_STATE");
+      let saved = [];
+      const savedRaw = await AsyncStorage.getItem("LEADERBOARD_STATE");
 
-      let aiPlayers = [];
-
-      if (savedBoard) {
+      if (savedRaw) {
         try {
-          const parsed = JSON.parse(savedBoard);
-          aiPlayers = Array.isArray(parsed) ? parsed : [];
-        } catch {
-          aiPlayers = [];
-        }
+          saved = JSON.parse(savedRaw);
+        } catch {}
       }
 
-      const defaultAIs = createAIPlayers(userScore);
+      let aiPlayers = createAIPlayers(stats);
 
-      const aiMap = new Map();
-      [...defaultAIs, ...aiPlayers].forEach((p) => {
-        if (p?.name && p.name !== "🟢 TOI") {
-          aiMap.set(p.name, {
-            name: p.name,
-            score: safeNumber(p.score),
-            boss: !!p.boss,
-          });
-        }
-      });
-
-      aiPlayers = AI_NAMES.map((name) => {
-        return (
-          aiMap.get(name) ||
-          defaultAIs.find((p) => p.name === name)
-        );
-      });
+      if (saved.length) {
+        aiPlayers = saved;
+      }
 
       aiPlayers = evolveScores(aiPlayers, stats, userScore)
         .sort((a, b) => b.score - a.score)
@@ -197,10 +196,10 @@ export default function Leaderboard() {
     }
   };
 
-  const getRankStyle = (index) => {
-    if (index === 0) return { color: "#FFD700" };
-    if (index === 1) return { color: "#C0C0C0" };
-    if (index === 2) return { color: "#CD7F32" };
+  const getRankStyle = (i) => {
+    if (i === 0) return { color: "#FFD700" };
+    if (i === 1) return { color: "#C0C0C0" };
+    if (i === 2) return { color: "#CD7F32" };
     return { color: "white" };
   };
 
@@ -231,9 +230,8 @@ export default function Leaderboard() {
       ) : (
         <FlatList
           data={data}
-          keyExtractor={(item, index) => `${item.name}-${index}`}
+          keyExtractor={(item, i) => `${item.name}-${i}`}
           renderItem={renderItem}
-          showsVerticalScrollIndicator={false}
         />
       )}
 
