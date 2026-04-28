@@ -25,10 +25,8 @@ const interstitial = InterstitialAd.createForAdRequest(
 );
 
 // ================= UTILS =================
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-
-const safeNumber = (value) => {
-  const n = Number(value);
+const safeNumber = (v) => {
+  const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
 
@@ -40,55 +38,6 @@ const parseHistory = (raw) => {
   } catch {
     return [];
   }
-};
-
-const getMean = (scores) => {
-  if (!scores.length) return 0;
-  return scores.reduce((sum, n) => sum + n, 0) / scores.length;
-};
-
-const getStdDev = (scores) => {
-  if (!scores.length) return 0;
-  const mean = getMean(scores);
-  const variance =
-    scores.reduce((sum, n) => sum + Math.pow(n - mean, 2), 0) / scores.length;
-  return Math.sqrt(variance);
-};
-
-const buildStatsFromHistory = (history) => {
-  const scores = history.map((item) => safeNumber(item?.score));
-
-  const best = scores.length ? Math.max(...scores) : 0;
-  const games = scores.length;
-  const first = scores[0] || 0;
-  const last = scores[scores.length - 1] || 0;
-
-  const average = getMean(scores);
-  const recentScores = scores.slice(-5);
-  const recentAverage = getMean(recentScores);
-  const deviation = getStdDev(scores);
-
-  const trend = recentAverage - average;
-
-  let streak = 0;
-  for (let i = scores.length - 1; i >= 1; i--) {
-    if (scores[i] > scores[i - 1]) streak++;
-    else break;
-  }
-
-  const consistency = clamp(Math.round(180 - deviation * 0.4), 20, 180);
-  const improvement = last - first;
-
-  return {
-    best,
-    games,
-    streak,
-    average,
-    recentAverage,
-    trend,
-    consistency,
-    improvement,
-  };
 };
 
 // ================= COMPONENT =================
@@ -105,20 +54,29 @@ export default function Home() {
     try {
       const raw = await AsyncStorage.getItem("HISTORY");
 
-      // 🔥 LIMIT 25 + ORDER
       let history = parseHistory(raw)
         .sort((a, b) => (a?.date || 0) - (b?.date || 0))
         .slice(-25);
 
-      const stats = buildStatsFromHistory(history);
+      const scores = history.map((h) => safeNumber(h?.score));
 
-      setBestScore(stats.best);
-      setGamesPlayed(stats.games);
-      setStreak(stats.streak);
+      const best = scores.length ? Math.max(...scores) : 0;
+      const games = scores.length;
 
-      // 🔥 SYNC AVEC LEADERBOARD
-      let board;
+      let streakCalc = 0;
+      for (let i = scores.length - 1; i >= 1; i--) {
+        if (scores[i] > scores[i - 1]) streakCalc++;
+        else break;
+      }
+
+      setBestScore(best);
+      setGamesPlayed(games);
+      setStreak(streakCalc);
+
+      // 🔥 UTILISE DIRECTEMENT LE LEADERBOARD GLOBAL
       const saved = await AsyncStorage.getItem("LEADERBOARD_STATE");
+
+      let board = [];
 
       if (saved) {
         try {
@@ -126,30 +84,30 @@ export default function Home() {
 
           board = [
             ...aiPlayers,
-            { name: "🟢 TOI", score: stats.best, you: true },
+            { name: "🟢 TOI", score: best, you: true },
           ].sort((a, b) => b.score - a.score);
         } catch {
           board = [];
         }
       }
 
-      // fallback si aucun leaderboard
-      if (!board || board.length === 0) {
+      // fallback (rare)
+      if (!board.length) {
         board = [
-          { name: "👑 TITAN", score: 1200, boss: true },
-          { name: "🔥 Alpha", score: 900 },
-          { name: "⚡ Nova", score: 700 },
-          { name: "🟢 TOI", score: stats.best, you: true },
+          { name: "👑 TITAN", score: 3000, boss: true },
+          { name: "🔥 Alpha", score: 2000 },
+          { name: "⚡ Nova", score: 1500 },
+          { name: "🟢 TOI", score: best, you: true },
         ].sort((a, b) => b.score - a.score);
       }
 
       setLeaderboard(board);
 
       const bossScore = board.find((p) => p.boss)?.score ?? 0;
-      const beatBoss = stats.best >= bossScore && stats.best > 0;
+      const beatBoss = best >= bossScore && best > 0;
 
-      await AsyncStorage.setItem("BOSS_BEAT", beatBoss ? "true" : "false");
       setBossBeaten(beatBoss);
+      await AsyncStorage.setItem("BOSS_BEAT", beatBoss ? "true" : "false");
     } catch (e) {
       console.log("LOAD ERROR:", e);
     }
@@ -183,8 +141,8 @@ export default function Home() {
   );
 
   const getRank = () => {
-    if (bestScore < 500) return "Débutant";
-    if (bestScore < 1500) return "Pro";
+    if (bestScore < 1000) return "Débutant";
+    if (bestScore < 5000) return "Pro";
     return "Légende";
   };
 
@@ -210,11 +168,10 @@ export default function Home() {
     <View style={{ flex: 1, backgroundColor: "#0A0F2C" }}>
       <ScrollView contentContainerStyle={styles.container}>
         
-        {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.logo}>🌍</Text>
           <Text style={styles.title}>QuizWorld</Text>
-          <Text style={styles.subtitle}>Classement vivant et intelligent</Text>
+          <Text style={styles.subtitle}>Classement vivant</Text>
 
           <TouchableOpacity
             style={styles.profileBtn}
@@ -224,15 +181,13 @@ export default function Home() {
           </TouchableOpacity>
         </View>
 
-        {/* STATS */}
         <View style={styles.statsBox}>
           <Text style={styles.stat}>🏆 {bestScore}</Text>
-          <Text style={styles.stat}>🎮 {gamesPlayed} parties</Text>
-          <Text style={styles.stat}>🔥 Streak: {streak}</Text>
+          <Text style={styles.stat}>🎮 {gamesPlayed}</Text>
+          <Text style={styles.stat}>🔥 {streak}</Text>
           <Text style={styles.rank}>👑 {getRank()}</Text>
         </View>
 
-        {/* PLAY */}
         <TouchableOpacity
           style={styles.playButton}
           onPress={() => router.replace("/quiz")}
@@ -240,9 +195,8 @@ export default function Home() {
           <Text style={styles.playText}>JOUER</Text>
         </TouchableOpacity>
 
-        {/* LEADERBOARD */}
         <View style={styles.leaderboardBox}>
-          <Text style={styles.leaderboardTitle}>🏆 Classement vivant</Text>
+          <Text style={styles.leaderboardTitle}>🏆 Classement</Text>
 
           {leaderboard.map((player, index) => (
             <View
@@ -265,7 +219,7 @@ export default function Home() {
 
         {bossBeaten && (
           <View style={styles.bossBox}>
-            <Text style={styles.bossText}>👑 TU AS BATTU LE BOSS !</Text>
+            <Text style={styles.bossText}>👑 BOSS BATTU</Text>
           </View>
         )}
       </ScrollView>
@@ -311,7 +265,6 @@ const styles = StyleSheet.create({
   subtitle: {
     color: "#9CA3AF",
     fontSize: 16,
-    marginTop: 4,
   },
 
   statsBox: {
@@ -332,7 +285,6 @@ const styles = StyleSheet.create({
   rank: {
     color: "#FFD700",
     fontWeight: "bold",
-    fontSize: 18,
   },
 
   playButton: {
@@ -355,7 +307,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#111827",
     borderRadius: 20,
     padding: 20,
-    marginBottom: 20,
   },
 
   rowBase: {
@@ -376,7 +327,6 @@ const styles = StyleSheet.create({
   rankNum: {
     width: 40,
     fontWeight: "bold",
-    color: "#FFD700",
   },
 
   playerName: {
@@ -393,6 +343,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#7C3AED",
     padding: 15,
     borderRadius: 15,
+    marginTop: 10,
   },
 
   bossText: {
