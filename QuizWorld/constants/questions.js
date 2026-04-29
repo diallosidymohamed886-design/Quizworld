@@ -64,6 +64,34 @@ export const QUESTIONS = [
 { question: "Quel écrivain a écrit 1984 ?", options: ["Orwell","Kafka","Camus","Hugo"], answer: "Orwell", reward: 150 },
 { question: "Quel est le plus petit nombre premier ?", options: ["0","1","2","3"], answer: "2", reward: 150 },
 { question: "Quelle est la dérivée de x² ?", options: ["x","2x","x²","2"], answer: "2x", reward: 150 },
-{ question: "Une comparaison sans outil est :", options: ["Métaphore","Hyperbole","Anaphore","Litote"], answer: "Métaphore", reward: 150 }
+{ question: "Une comparaison sans outil est :", options: ["Métaphore","Hyperbole","Anaphore","Litote"], answer: "Métaphore", reward: 150 },
+{ question: "Quel philosophe est associé au concept du 'surhomme' ?", options: ["Nietzsche","Kant","Socrate","Descartes"], answer: "Nietzsche", reward: 150 },
+{ question: "Quel est le résultat de 9² ?", options: ["72","81","99","90"], answer: "81", reward: 120 },
+{ question: "Quel pays est le plus grand d’Afrique ?", options: ["Nigeria","Algérie","Égypte","Congo"], answer: "Algérie", reward: 130 },
+{ question: "Quel gaz est responsable de l'effet de serre principal ?", options: ["Oxygène","Azote","CO2","Hydrogène"], answer: "CO2", reward: 140 },
+{ question: "Qui a formulé les lois de la gravitation ?", options: ["Einstein","Newton","Galilée","Kepler"], answer: "Newton", reward: 120 },
 
+{ question: "Quelle est la capitale de la Turquie ?", options: ["Istanbul","Ankara","Izmir","Bursa"], answer: "Ankara", reward: 110 },
+{ question: "Quel est le symbole chimique du calcium ?", options: ["Ca","Cl","C","Cm"], answer: "Ca", reward: 120 },
+{ question: "Combien font 7³ ?", options: ["343","240","147","321"], answer: "343", reward: 150 },
+{ question: "Quel océan est le plus profond ?", options: ["Atlantique","Indien","Pacifique","Arctique"], answer: "Pacifique", reward: 120 },
+{ question: "Quel est le plus grand producteur de pétrole ?", options: ["USA","Arabie Saoudite","Russie","Iran"], answer: "USA", reward: 150 },
+
+{ question: "Quel est le synonyme de 'épistémologie' ?", options: ["Science","Connaissance","Étude de la connaissance","Logique"], answer: "Étude de la connaissance", reward: 180 },
+{ question: "Quel écrivain a écrit 'Le Procès' ?", options: ["Kafka","Camus","Zola","Hugo"], answer: "Kafka", reward: 140 },
+{ question: "Quel est le nombre de côtés d’un dodécagone ?", options: ["10","12","14","16"], answer: "12", reward: 140 },
+{ question: "Quel est le rôle du foie ?", options: ["Respirer","Filtrer le sang","Pomper","Digérer"], answer: "Filtrer le sang", reward: 120 },
+{ question: "Quel est le plus grand océan après le Pacifique ?", options: ["Atlantique","Indien","Arctique","Antarctique"], answer: "Atlantique", reward: 120 },
+
+{ question: "Quelle est la monnaie du Japon ?", options: ["Won","Yuan","Yen","Ringgit"], answer: "Yen", reward: 100 },
+{ question: "Quel est le carré de 15 ?", options: ["215","225","235","205"], answer: "225", reward: 130 },
+{ question: "Quel pays a pour capitale Oslo ?", options: ["Suède","Norvège","Danemark","Finlande"], answer: "Norvège", reward: 110 },
+{ question: "Quel est le symbole du cuivre ?", options: ["Cu","Co","C","Cr"], answer: "Cu", reward: 120 },
+{ question: "Quel est le plus grand désert chaud ?", options: ["Gobi","Sahara","Atacama","Kalahari"], answer: "Sahara", reward: 110 },
+
+{ question: "Qui a écrit 'La Nausée' ?", options: ["Sartre","Camus","Nietzsche","Hegel"], answer: "Sartre", reward: 150 },
+{ question: "Quelle est la racine carrée de 169 ?", options: ["11","12","13","14"], answer: "13", reward: 120 },
+{ question: "Quel est le plus long fleuve d’Asie ?", options: ["Gange","Yangtsé","Mékong","Indus"], answer: "Yangtsé", reward: 130 },
+{ question: "Quel est le plus grand pays d’Europe ?", options: ["France","Ukraine","Russie","Espagne"], answer: "Russie", reward: 120 },
+{ question: "Quel est le rôle du cœur ?", options: ["Respirer","Pomper le sang","Filtrer","Digérer"], answer: "Pomper le sang", reward: 100 }
 ];
