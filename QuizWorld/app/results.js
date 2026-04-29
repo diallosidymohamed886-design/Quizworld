@@ -8,6 +8,21 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+const safeNumber = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const parseHistory = (raw) => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 export default function Results() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -18,30 +33,24 @@ export default function Results() {
   const [gamesPlayed, setGamesPlayed] = useState(0);
   const [message, setMessage] = useState("");
 
-  // 🔥 LOAD STATS
+  // 🔥 LOAD STATS SYNC AVEC LES 25 DERNIÈRES PARTIES
   useEffect(() => {
     const load = async () => {
       try {
         const raw = await AsyncStorage.getItem("HISTORY");
 
-        let history = [];
-        try {
-          history = raw ? JSON.parse(raw) : [];
-        } catch {
-          history = [];
-        }
+        let history = parseHistory(raw)
+          .sort((a, b) => (a?.date || 0) - (b?.date || 0))
+          .slice(-25);
 
-        if (!Array.isArray(history)) history = [];
+        const scores = history.map((h) => safeNumber(h?.score));
 
-        setGamesPlayed(history.length);
+        setGamesPlayed(scores.length);
 
-        const best = history.length
-          ? Math.max(...history.map((h) => h.score || 0))
-          : 0;
-
+        const best = scores.length ? Math.max(...scores) : 0;
         setBestScore(best);
       } catch (e) {
-        console.log(e);
+        console.log("RESULTS ERROR:", e);
       }
     };
 
@@ -59,7 +68,6 @@ export default function Results() {
 
   return (
     <View style={styles.container}>
-      
       <Text style={styles.title}>RÉSULTAT</Text>
 
       <Text style={styles.score}>💰 {money}</Text>
@@ -82,7 +90,6 @@ export default function Results() {
       >
         <Text style={styles.buttonText}>Voir classement</Text>
       </TouchableOpacity>
-
     </View>
   );
 }
@@ -93,12 +100,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#0A0F2C",
     justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
 
   title: {
     color: "white",
     fontSize: 24,
     marginBottom: 10,
+    fontWeight: "bold",
   },
 
   score: {
@@ -111,11 +120,13 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 18,
     marginVertical: 15,
+    textAlign: "center",
   },
 
   stat: {
     color: "#9CA3AF",
     marginTop: 5,
+    fontSize: 16,
   },
 
   button: {
@@ -123,6 +134,8 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 20,
     marginTop: 20,
+    width: "80%",
+    alignItems: "center",
   },
 
   button2: {
@@ -130,6 +143,8 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 20,
     marginTop: 10,
+    width: "80%",
+    alignItems: "center",
   },
 
   buttonText: {
