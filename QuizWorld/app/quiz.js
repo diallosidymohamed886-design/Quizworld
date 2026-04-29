@@ -62,6 +62,7 @@ export default function Quiz() {
   const answerLockRef = useRef(false);
   const timeoutHandledRef = useRef(false);
   const moneyRef = useRef(0);
+  const lifeLockRef = useRef(false); // 🔥 FIX DOUBLE VIE
 
   const safeIndex =
     questions.length > 0 ? Math.min(index, questions.length - 1) : 0;
@@ -84,18 +85,19 @@ export default function Quiz() {
     setShuffledOptions(shuffleArray(current.options));
   }, [isReady, current, index]);
 
-  // 📊 Progression
+  // 📊 Progression (safe)
   useEffect(() => {
     if (!isReady) return;
 
     Animated.timing(progressAnim, {
-      toValue: (index + 1) / questions.length,
+      toValue:
+        questions.length > 0 ? (index + 1) / questions.length : 0,
       duration: 300,
       useNativeDriver: false,
     }).start();
   }, [index, isReady, questions.length, progressAnim]);
 
-  // ⏱ TIMER stable
+  // ⏱ TIMER
   useEffect(() => {
     if (!isReady || gameOver || isEnding.current || selected) return;
 
@@ -175,9 +177,17 @@ export default function Quiz() {
     } catch {}
   };
 
-  // 💔 PERTE DE VIE
+  // 💔 PERTE DE VIE (SAFE)
   const loseLife = async () => {
-    if (gameOver || isEnding.current || answerLockRef.current) return;
+    if (
+      gameOver ||
+      isEnding.current ||
+      answerLockRef.current ||
+      lifeLockRef.current
+    )
+      return;
+
+    lifeLockRef.current = true;
 
     clearTimeout(timerRef.current);
     answerLockRef.current = true;
@@ -194,12 +204,13 @@ export default function Quiz() {
     if (hearts <= 1) {
       setHearts(0);
       setGameOver(true);
-      answerLockRef.current = false;
     } else {
       setHearts((h) => h - 1);
-      answerLockRef.current = false;
       nextQuestion();
     }
+
+    answerLockRef.current = false;
+    lifeLockRef.current = false;
   };
 
   // ➡️ NEXT
@@ -217,7 +228,7 @@ export default function Quiz() {
     }
   };
 
-  // 💾 HISTORY
+  // 💾 SAVE
   const saveHistory = async () => {
     try {
       const data = await AsyncStorage.getItem("HISTORY");
@@ -225,9 +236,7 @@ export default function Quiz() {
       let history = [];
       try {
         history = data ? JSON.parse(data) : [];
-      } catch {
-        history = [];
-      }
+      } catch {}
 
       if (!Array.isArray(history)) history = [];
 
@@ -248,8 +257,6 @@ export default function Quiz() {
     isEnding.current = true;
 
     clearTimeout(timerRef.current);
-    timeoutHandledRef.current = false;
-    answerLockRef.current = false;
 
     try {
       if (Math.random() < 0.4) interstitial.show();
@@ -302,7 +309,7 @@ export default function Quiz() {
     }, 300);
   };
 
-  // 🔥 REVIVE FIX
+  // 🔥 REVIVE
   const revive = () => {
     if (reviveUsedRef.current) return;
     reviveUsedRef.current = true;
@@ -399,9 +406,9 @@ export default function Quiz() {
           <Text style={styles.question}>{current.question}</Text>
         </View>
 
-        {shuffledOptions.map((opt) => (
+        {shuffledOptions.map((opt, i) => (
           <TouchableOpacity
-            key={opt}
+            key={opt + i}
             onPress={() => handleAnswer(opt)}
             style={[
               styles.option,
@@ -424,7 +431,7 @@ export default function Quiz() {
   );
 }
 
-// 🎨 STYLES COMPLETS
+// 🎨 STYLES
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0A0F2C" },
   top: { flex: 1, padding: 15, justifyContent: "center" },
