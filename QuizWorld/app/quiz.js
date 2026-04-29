@@ -60,14 +60,23 @@ export default function Quiz() {
   const soundRef = useRef(null);
   const reviveUsedRef = useRef(false);
   const answerLockRef = useRef(false);
+  const timeoutHandledRef = useRef(false);
+  const moneyRef = useRef(0);
 
-  const safeIndex = questions.length > 0 ? Math.min(index, questions.length - 1) : 0;
+  const safeIndex =
+    questions.length > 0 ? Math.min(index, questions.length - 1) : 0;
+
   const current = questions[safeIndex];
+
   const isReady =
     Array.isArray(questions) &&
     questions.length > 0 &&
     current &&
     Array.isArray(current.options);
+
+  useEffect(() => {
+    moneyRef.current = money;
+  }, [money]);
 
   // 🔀 Shuffle options
   useEffect(() => {
@@ -93,7 +102,10 @@ export default function Quiz() {
     clearTimeout(timerRef.current);
 
     if (time <= 0) {
-      loseLife();
+      if (!timeoutHandledRef.current) {
+        timeoutHandledRef.current = true;
+        loseLife();
+      }
       return;
     }
 
@@ -119,7 +131,7 @@ export default function Quiz() {
     }, 1000);
 
     return () => clearTimeout(timerRef.current);
-  }, [time, gameOver, selected, isReady, index]);
+  }, [time, gameOver, selected, isReady, index, scaleAnim]);
 
   // CLEANUP
   useEffect(() => {
@@ -170,8 +182,10 @@ export default function Quiz() {
     clearTimeout(timerRef.current);
     answerLockRef.current = true;
 
-    await playSound("wrong");
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    try {
+      await playSound("wrong");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } catch {}
 
     setCombo(1);
     setStreak(0);
@@ -183,14 +197,16 @@ export default function Quiz() {
       answerLockRef.current = false;
     } else {
       setHearts((h) => h - 1);
-      nextQuestion();
       answerLockRef.current = false;
+      nextQuestion();
     }
   };
 
   // ➡️ NEXT
   const nextQuestion = () => {
     clearTimeout(timerRef.current);
+    timeoutHandledRef.current = false;
+    answerLockRef.current = false;
 
     if (index + 1 < questions.length) {
       setIndex((i) => i + 1);
@@ -216,13 +232,11 @@ export default function Quiz() {
       if (!Array.isArray(history)) history = [];
 
       history.push({
-        score: Number(money) || 0,
+        score: Number(moneyRef.current) || 0,
         date: Date.now(),
       });
 
-      history = history
-        .sort((a, b) => b.date - a.date)
-        .slice(0, 25);
+      history = history.sort((a, b) => b.date - a.date).slice(0, 25);
 
       await AsyncStorage.setItem("HISTORY", JSON.stringify(history));
     } catch {}
@@ -234,6 +248,8 @@ export default function Quiz() {
     isEnding.current = true;
 
     clearTimeout(timerRef.current);
+    timeoutHandledRef.current = false;
+    answerLockRef.current = false;
 
     try {
       if (Math.random() < 0.4) interstitial.show();
@@ -243,7 +259,7 @@ export default function Quiz() {
 
     router.replace({
       pathname: "/results",
-      params: { money: Number(money) || 0 },
+      params: { money: Number(moneyRef.current) || 0 },
     });
   };
 
@@ -257,8 +273,10 @@ export default function Quiz() {
 
     setTimeout(async () => {
       if (option === current?.answer) {
-        await playSound("correct");
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        try {
+          await playSound("correct");
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } catch {}
 
         const newStreak = streak + 1;
         setStreak(newStreak);
@@ -269,7 +287,11 @@ export default function Quiz() {
         if (newStreak >= 10) newCombo = 5;
 
         setCombo(newCombo);
-        setMoney((m) => m + (current?.reward || 0) * newCombo);
+
+        const reward = (current?.reward || 0) * newCombo;
+        const nextMoney = Number(moneyRef.current) + reward;
+        moneyRef.current = nextMoney;
+        setMoney(nextMoney);
 
         answerLockRef.current = false;
         nextQuestion();
@@ -288,6 +310,7 @@ export default function Quiz() {
     clearTimeout(timerRef.current);
     isEnding.current = false;
     answerLockRef.current = false;
+    timeoutHandledRef.current = false;
 
     setGameOver(false);
     setHearts(3);
@@ -297,7 +320,10 @@ export default function Quiz() {
     setIndex(0);
     setQuestions(shuffleArray(QUESTIONS));
 
-    setMoney((m) => Math.floor(m * 0.5));
+    const revivedMoney = Math.floor(Number(moneyRef.current) * 0.5);
+    moneyRef.current = revivedMoney;
+    setMoney(revivedMoney);
+
     setCombo(1);
     setStreak(0);
   };
