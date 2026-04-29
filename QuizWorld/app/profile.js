@@ -5,44 +5,58 @@ import {
   StyleSheet,
   Linking,
   ScrollView,
+  Alert,
 } from "react-native";
 
+// 🔒 SAFE LINK
+const openLink = async (url) => {
+  try {
+    const supported = await Linking.canOpenURL(url);
+    if (supported) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert("Erreur", "Impossible d’ouvrir ce lien");
+    }
+  } catch {
+    Alert.alert("Erreur", "Une erreur est survenue");
+  }
+};
+
 export default function Profile() {
-
-  const openFacebook = () => {
-    Linking.openURL("https://www.facebook.com/sidymohamed.diallo.503");
-  };
-
-  const openWhatsApp = () => {
-    Linking.openURL("https://wa.me/224626547176");
-  };
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
-
-      {/* HEADER */}
-      <Text style={styles.title}>👤 Profil</Text>
-
-      {/* CARD PROFIL */}
-      <View style={styles.card}>
+      
+      {/* HEADER PREMIUM */}
+      <View style={styles.header}>
+        <Text style={styles.avatar}>👤</Text>
         <Text style={styles.name}>Sidy Mohamed Diallo</Text>
         <Text style={styles.subtitle}>Créateur de QuizWorld</Text>
       </View>
 
-      {/* LIENS */}
+      {/* SECTION RÉSEAUX */}
       <Text style={styles.section}>🌐 Réseaux</Text>
 
-      <TouchableOpacity style={styles.item} onPress={openFacebook}>
+      <TouchableOpacity
+        style={styles.item}
+        onPress={() =>
+          openLink("https://www.facebook.com/sidymohamed.diallo.503")
+        }
+      >
         <Text style={styles.itemTitle}>Facebook</Text>
         <Text style={styles.itemSub}>Voir mon profil</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.item} onPress={openWhatsApp}>
+      <TouchableOpacity
+        style={styles.item}
+        onPress={() =>
+          openLink("https://wa.me/224626547176")
+        }
+      >
         <Text style={styles.itemTitle}>WhatsApp</Text>
         <Text style={styles.itemSub}>Me contacter</Text>
       </TouchableOpacity>
 
-      {/* INFOS APP */}
+      {/* SECTION APP */}
       <Text style={styles.section}>ℹ️ Application</Text>
 
       <View style={styles.itemStatic}>
@@ -53,7 +67,7 @@ export default function Profile() {
       <View style={styles.itemStatic}>
         <Text style={styles.itemTitle}>💡 Objectif</Text>
         <Text style={styles.itemSub}>
-          Devenir le meilleur joueur
+          Devenir le meilleur joueur mondial
         </Text>
       </View>
 
@@ -61,6 +75,7 @@ export default function Profile() {
   );
 }
 
+// 🎨 DESIGN STYLE NETFLIX
 const styles = StyleSheet.create({
   container: {
     padding: 20,
@@ -68,19 +83,20 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
 
-  title: {
-    color: "white",
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 20,
+  header: {
+    backgroundColor: "#111827",
+    borderRadius: 25,
+    padding: 25,
+    alignItems: "center",
+    marginBottom: 25,
+    shadowColor: "#000",
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
   },
 
-  card: {
-    backgroundColor: "#1E3A8A",
-    padding: 25,
-    borderRadius: 20,
-    alignItems: "center",
-    marginBottom: 20,
+  avatar: {
+    fontSize: 60,
+    marginBottom: 10,
   },
 
   name: {
@@ -98,20 +114,22 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     marginBottom: 10,
     marginTop: 10,
+    fontSize: 14,
+    letterSpacing: 1,
   },
 
   item: {
-    backgroundColor: "#2563EB",
+    backgroundColor: "#1E3A8A",
     padding: 18,
-    borderRadius: 15,
-    marginBottom: 10,
+    borderRadius: 18,
+    marginBottom: 12,
   },
 
   itemStatic: {
     backgroundColor: "#111827",
     padding: 18,
-    borderRadius: 15,
-    marginBottom: 10,
+    borderRadius: 18,
+    marginBottom: 12,
   },
 
   itemTitle: {
