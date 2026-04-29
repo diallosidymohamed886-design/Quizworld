@@ -39,12 +39,13 @@ const parseHistory = (raw) => {
   }
 };
 
-// 🔥 STATS
+// 🔥 STATS (SYNC AVEC HOME + RESULTS)
 const buildStatsFromHistory = (history) => {
   const scores = history.map((h) => safeNumber(h?.score));
 
   const best = scores.length ? Math.max(...scores) : 0;
   const games = scores.length;
+
   const average =
     scores.length > 0
       ? scores.reduce((s, n) => s + n, 0) / scores.length
@@ -77,74 +78,39 @@ export default function Leaderboard() {
     }, [])
   );
 
-  // 🔥 IA ULTRA AMÉLIORÉE
+  // 🔥 IA STABLE (pas trop cheatée)
   const createAIPlayers = (stats) => {
     const { best, games, average, recentAverage, streak } = stats;
 
-    const skill = best * 0.6 + average * 0.3 + recentAverage * 0.5;
+    const skill = best * 0.5 + average * 0.3 + recentAverage * 0.4;
 
-    return [
-      {
-        name: "👑 TITAN",
-        score: clamp(
-          skill * 1.4 + 2000 + games * 50 + streak * 120,
-          1000,
-          999999
-        ),
-        boss: true,
-      },
-      {
-        name: "🔥 Sidy",
-        score: skill * 1.2 + 1200 + games * 25,
-      },
-      {
-        name: "⚡ Alpha",
-        score: skill * 1.1 + 900 + recentAverage * 0.6,
-      },
-      {
-        name: "🧠 Aicha",
-        score: skill * 1.05 + 700,
-      },
-      {
-        name: "🚀 Nova",
-        score: skill * 0.95 + streak * 200,
-      },
-      {
-        name: "💎 Kamoudou",
-        score: skill * 0.9 + average * 0.4,
-      },
-      {
-        name: "🎯 Mariame",
-        score: skill * 0.85 + games * 30,
-      },
-      {
-        name: "📚 Neo",
-        score: skill * 0.75 + games * 40,
-      },
-      {
-        name: "🎮 Rookie",
-        score: skill * 0.5 + 100,
-      },
-    ].map((p) => ({
-      ...p,
-      score: Math.round(Math.max(0, p.score)),
-    }));
+    return AI_NAMES.map((name, i) => {
+      let base = skill + (9 - i) * 300;
+
+      if (name === "👑 TITAN") {
+        base += 1500 + games * 40 + streak * 80;
+      }
+
+      return {
+        name,
+        score: Math.round(clamp(base, 0, 999999)),
+        boss: name === "👑 TITAN",
+      };
+    });
   };
 
-  // 🔥 ÉVOLUTION DYNAMIQUE
+  // 🔥 ÉVOLUTION MAÎTRISÉE (évite les bugs extrêmes)
   const evolveScores = (players, stats, userScore) => {
     return players.map((p) => {
-      if (p.name === "🟢 TOI") return p;
-
       const pressure = userScore - p.score;
 
       let variation =
-        Math.random() * 300 - 150 +
-        pressure * 0.15 +
-        stats.trend * 2 +
-        stats.streak * 40;
+        Math.random() * 200 - 100 +
+        pressure * 0.1 +
+        stats.trend * 1.5 +
+        stats.streak * 25;
 
-      if (p.boss) variation *= 0.6;
+      if (p.boss) variation *= 0.5;
 
       return {
         ...p,
@@ -156,30 +122,37 @@ export default function Leaderboard() {
   const loadLeaderboard = async () => {
     try {
       const raw = await AsyncStorage.getItem("HISTORY");
-      let history = parseHistory(raw).slice(-25);
+
+      let history = parseHistory(raw)
+        .sort((a, b) => (a?.date || 0) - (b?.date || 0))
+        .slice(-25);
 
       const stats = buildStatsFromHistory(history);
       const userScore = stats.best;
 
+      // 🔥 récupération sauvegarde
       let saved = [];
       const savedRaw = await AsyncStorage.getItem("LEADERBOARD_STATE");
 
       if (savedRaw) {
         try {
-          saved = JSON.parse(savedRaw);
+          const parsed = JSON.parse(savedRaw);
+          if (Array.isArray(parsed)) saved = parsed;
         } catch {}
       }
 
-      let aiPlayers = createAIPlayers(stats);
+      // 🔥 base IA
+      let aiPlayers =
+        saved.length === AI_NAMES.length
+          ? saved
+          : createAIPlayers(stats);
 
-      if (saved.length) {
-        aiPlayers = saved;
-      }
-
+      // 🔥 évolution
       aiPlayers = evolveScores(aiPlayers, stats, userScore)
         .sort((a, b) => b.score - a.score)
         .slice(0, 9);
 
+      // 🔥 classement final
       const finalBoard = [
         ...aiPlayers,
         { name: "🟢 TOI", score: userScore, you: true },
@@ -187,6 +160,7 @@ export default function Leaderboard() {
 
       setData(finalBoard);
 
+      // 🔥 sauvegarde propre
       await AsyncStorage.setItem(
         "LEADERBOARD_STATE",
         JSON.stringify(aiPlayers)
@@ -232,6 +206,7 @@ export default function Leaderboard() {
           data={data}
           keyExtractor={(item, i) => `${item.name}-${i}`}
           renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
         />
       )}
 
@@ -245,12 +220,14 @@ export default function Leaderboard() {
   );
 }
 
+// 🎨 STYLES
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0A0F2C",
     padding: 20,
   },
+
   title: {
     color: "white",
     fontSize: 28,
@@ -258,11 +235,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
   },
+
   empty: {
     color: "#9CA3AF",
     textAlign: "center",
     marginTop: 20,
   },
+
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -272,28 +251,34 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     alignItems: "center",
   },
+
   youRow: {
     backgroundColor: "#1E3A8A",
   },
+
   bossRow: {
     backgroundColor: "#7C3AED",
   },
+
   rank: {
     fontSize: 18,
     fontWeight: "bold",
     width: 42,
   },
+
   name: {
     color: "white",
     fontSize: 16,
     flex: 1,
     paddingHorizontal: 10,
   },
+
   score: {
     color: "#FFD700",
     fontSize: 18,
     fontWeight: "bold",
   },
+
   button: {
     backgroundColor: "#2563EB",
     padding: 15,
@@ -301,6 +286,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 20,
   },
+
   buttonText: {
     color: "white",
     fontSize: 18,
