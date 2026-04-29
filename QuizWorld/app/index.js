@@ -7,7 +7,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -110,11 +110,7 @@ const generateFallbackLeaderboard = (stats) => {
   const aiPlayers = [
     {
       name: "👑 TITAN",
-      score: clamp(
-        1300 + games * 18 + Math.max(0, trend) * 2 + streak * 30,
-        200,
-        99999
-      ),
+      score: clamp(1300 + games * 18 + Math.max(0, trend) * 2 + streak * 30, 200, 99999),
       boss: true,
     },
     {
@@ -150,9 +146,7 @@ const generateFallbackLeaderboard = (stats) => {
   return [
     ...aiPlayers,
     { name: "🟢 TOI", score: best, you: true },
-  ]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 10);
+  ].sort((a, b) => b.score - a.score);
 };
 
 // ================= COMPONENT =================
@@ -164,6 +158,8 @@ export default function Home() {
   const [streak, setStreak] = useState(0);
   const [leaderboard, setLeaderboard] = useState([]);
   const [bossBeaten, setBossBeaten] = useState(false);
+
+  const adLoadedRef = useRef(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -180,23 +176,18 @@ export default function Home() {
       setStreak(stats.streak);
 
       let board = [];
-
       const saved = await AsyncStorage.getItem("LEADERBOARD_STATE");
 
       if (saved) {
         try {
-          const aiPlayers = JSON.parse(saved);
-          if (Array.isArray(aiPlayers) && aiPlayers.length > 0) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
             board = [
-              ...aiPlayers,
+              ...parsed,
               { name: "🟢 TOI", score: stats.best, you: true },
-            ]
-              .sort((a, b) => b.score - a.score)
-              .slice(0, 10);
+            ].sort((a, b) => b.score - a.score);
           }
-        } catch {
-          board = [];
-        }
+        } catch {}
       }
 
       if (!board.length) {
@@ -215,56 +206,37 @@ export default function Home() {
     }
   }, []);
 
-  // 🔄 REFRESH
   useFocusEffect(
     useCallback(() => {
       loadData();
     }, [loadData])
   );
 
-  // 📢 ADS
+  // ADS SAFE
   useFocusEffect(
     useCallback(() => {
+      adLoadedRef.current = false;
       interstitial.load();
 
       const unsub = interstitial.addAdEventListener(
         AdEventType.LOADED,
         () => {
+          adLoadedRef.current = true;
+
           if (Math.random() < 0.2) {
             try {
-              interstitial.show();
+              if (adLoadedRef.current) interstitial.show();
             } catch {}
           }
         }
       );
 
-      return () => unsub();
+      return () => {
+        adLoadedRef.current = false;
+        unsub();
+      };
     }, [])
   );
-
-  const getRank = () => {
-    if (bestScore < 1000) return "Débutant";
-    if (bestScore < 5000) return "Pro";
-    return "Légende";
-  };
-
-  const getRowStyle = (player, index) => {
-    if (player.boss) return styles.bossRow;
-    if (player.you) return styles.youRow;
-
-    if (index === 0) return styles.goldRow;
-    if (index === 1) return styles.silverRow;
-    if (index === 2) return styles.bronzeRow;
-
-    return styles.rowBase;
-  };
-
-  const getRankColor = (index) => {
-    if (index === 0) return { color: "#FFD700" };
-    if (index === 1) return { color: "#C0C0C0" };
-    if (index === 2) return { color: "#CD7F32" };
-    return { color: "#9CA3AF" };
-  };
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0A0F2C" }}>
@@ -286,12 +258,11 @@ export default function Home() {
           <Text style={styles.stat}>🏆 {bestScore}</Text>
           <Text style={styles.stat}>🎮 {gamesPlayed}</Text>
           <Text style={styles.stat}>🔥 {streak}</Text>
-          <Text style={styles.rank}>👑 {getRank()}</Text>
         </View>
 
         <TouchableOpacity
           style={styles.playButton}
-          onPress={() => router.replace("/quiz")}
+          onPress={() => router.push("/quiz")}
         >
           <Text style={styles.playText}>JOUER</Text>
         </TouchableOpacity>
@@ -302,14 +273,10 @@ export default function Home() {
           {leaderboard.map((player, index) => (
             <View
               key={`${player.name}-${index}`}
-              style={[styles.rowBase, getRowStyle(player, index)]}
+              style={[styles.rowBase, player.you && styles.youRow, player.boss && styles.bossRow]}
             >
-              <Text style={[styles.rankNum, getRankColor(index)]}>
-                #{index + 1}
-              </Text>
-
+              <Text style={styles.rankNum}>#{index + 1}</Text>
               <Text style={styles.playerName}>{player.name}</Text>
-
               <Text style={styles.score}>{player.score}</Text>
             </View>
           ))}
@@ -334,132 +301,132 @@ export default function Home() {
 
 // ================= STYLES =================
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    alignItems: "center",
-    paddingBottom: 80,
-  },
+  container: {
+    padding: 20,
+    alignItems: "center",
+    paddingBottom: 80,
+  }, 
 
-  header: {
-    alignItems: "center",
-    marginTop: 30,
-    marginBottom: 20,
-  },
+  header: {
+    alignItems: "center",
+    marginTop: 30,
+    marginBottom: 20,
+  }, 
 
-  profileBtn: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
+  profileBtn: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+  }, 
 
-  logo: { fontSize: 70 },
+  logo: { fontSize: 70 }, 
 
-  title: {
-    fontSize: 42,
-    color: "white",
-    fontWeight: "bold",
-  },
+  title: {
+    fontSize: 42,
+    color: "white",
+    fontWeight: "bold",
+  }, 
 
-  subtitle: {
-    color: "#9CA3AF",
-    fontSize: 16,
-  },
+  subtitle: {
+    color: "#9CA3AF",
+    fontSize: 16,
+  }, 
 
-  statsBox: {
-    backgroundColor: "#111827",
-    padding: 20,
-    borderRadius: 20,
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 20,
-    gap: 8,
-  },
+  statsBox: {
+    backgroundColor: "#111827",
+    padding: 20,
+    borderRadius: 20,
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 20,
+    gap: 8,
+  }, 
 
-  stat: {
-    color: "#E5E7EB",
-    fontSize: 18,
-  },
+  stat: {
+    color: "#E5E7EB",
+    fontSize: 18,
+  }, 
 
-  rank: {
-    color: "#FFD700",
-    fontWeight: "bold",
-  },
+  rank: {
+    color: "#FFD700",
+    fontWeight: "bold",
+  }, 
 
-  playButton: {
-    backgroundColor: "#FFD700",
-    width: width * 0.9,
-    paddingVertical: 24,
-    borderRadius: 30,
-    alignItems: "center",
-    marginBottom: 20,
-  },
+  playButton: {
+    backgroundColor: "#FFD700",
+    width: width * 0.9,
+    paddingVertical: 24,
+    borderRadius: 30,
+    alignItems: "center",
+    marginBottom: 20,
+  }, 
 
-  playText: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#000",
-  },
+  playText: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#000",
+  }, 
 
-  leaderboardBox: {
-    width: "100%",
-    backgroundColor: "#111827",
-    borderRadius: 20,
-    padding: 20,
-  },
+  leaderboardBox: {
+    width: "100%",
+    backgroundColor: "#111827",
+    borderRadius: 20,
+    padding: 20,
+  }, 
 
-  leaderboardTitle: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
+  leaderboardTitle: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+  }, 
 
-  rowBase: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
+  rowBase: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+  }, 
 
-  goldRow: { backgroundColor: "#2A1E00" },
-  silverRow: { backgroundColor: "#1C2330" },
-  bronzeRow: { backgroundColor: "#2A1A10" },
-  youRow: { backgroundColor: "#1E3A8A" },
-  bossRow: { backgroundColor: "#7C3AED" },
+  goldRow: { backgroundColor: "#2A1E00" },
+  silverRow: { backgroundColor: "#1C2330" },
+  bronzeRow: { backgroundColor: "#2A1A10" },
+  youRow: { backgroundColor: "#1E3A8A" },
+  bossRow: { backgroundColor: "#7C3AED" }, 
 
-  rankNum: {
-    width: 40,
-    fontWeight: "bold",
-  },
+  rankNum: {
+    width: 40,
+    fontWeight: "bold",
+  }, 
 
-  playerName: {
-    flex: 1,
-    color: "white",
-  },
+  playerName: {
+    flex: 1,
+    color: "white",
+  }, 
 
-  score: {
-    color: "#FFD700",
-    fontWeight: "bold",
-  },
+  score: {
+    color: "#FFD700",
+    fontWeight: "bold",
+  }, 
 
-  bossBox: {
-    backgroundColor: "#7C3AED",
-    padding: 15,
-    borderRadius: 15,
-    marginTop: 10,
-  },
+  bossBox: {
+    backgroundColor: "#7C3AED",
+    padding: 15,
+    borderRadius: 15,
+    marginTop: 10,
+  }, 
 
-  bossText: {
-    color: "white",
-    textAlign: "center",
-  },
+  bossText: {
+    color: "white",
+    textAlign: "center",
+  }, 
 
-  banner: {
-    position: "absolute",
-    bottom: 0,
-    width: "100%",
-    alignItems: "center",
-  },
+  banner: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    alignItems: "center",
+  },
 });
