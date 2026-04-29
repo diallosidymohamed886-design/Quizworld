@@ -49,7 +49,7 @@ export default function Quiz() {
   const [combo, setCombo] = useState(1);
   const [streak, setStreak] = useState(0);
 
-  const [questions, setQuestions] = useState([]);
+  const [questions, setQuestions] = useState(() => shuffleArray(QUESTIONS));
   const [shuffledOptions, setShuffledOptions] = useState([]);
 
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -58,47 +58,68 @@ export default function Quiz() {
   const timerRef = useRef(null);
   const isEnding = useRef(false);
   const soundRef = useRef(null);
+  const reviveUsedRef = useRef(false);
+  const answerLockRef = useRef(false);
 
-  const current = questions[index];
-
-  // 🔥 INIT QUESTIONS RANDOM
-  useEffect(() => {
-    setQuestions(shuffleArray(QUESTIONS));
-  }, []);
-
-  if (!current || !Array.isArray(current.options)) return null;
+  const safeIndex = questions.length > 0 ? Math.min(index, questions.length - 1) : 0;
+  const current = questions[safeIndex];
+  const isReady =
+    Array.isArray(questions) &&
+    questions.length > 0 &&
+    current &&
+    Array.isArray(current.options);
 
   // 🔀 Shuffle options
   useEffect(() => {
+    if (!isReady) return;
     setShuffledOptions(shuffleArray(current.options));
-  }, [index]);
+  }, [isReady, current, index]);
 
   // 📊 Progression
   useEffect(() => {
+    if (!isReady) return;
+
     Animated.timing(progressAnim, {
       toValue: (index + 1) / questions.length,
       duration: 300,
       useNativeDriver: false,
     }).start();
-  }, [index]);
+  }, [index, isReady, questions.length, progressAnim]);
 
-  // ⏱ TIMER FIX
+  // ⏱ TIMER stable
   useEffect(() => {
-    if (gameOver || isEnding.current) return;
+    if (!isReady || gameOver || isEnding.current || selected) return;
 
-    const id = setInterval(() => {
-      setTime((t) => {
-        if (t <= 1) {
-          clearInterval(id);
-          loseLife();
-          return 0;
-        }
-        return t - 1;
-      });
+    clearTimeout(timerRef.current);
+
+    if (time <= 0) {
+      loseLife();
+      return;
+    }
+
+    if (time <= 5) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.2,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+
+    timerRef.current = setTimeout(() => {
+      setTime((t) => t - 1);
     }, 1000);
 
-    return () => clearInterval(id);
-  }, [index, gameOver]);
+    return () => clearTimeout(timerRef.current);
+  }, [time, gameOver, selected, isReady, index]);
 
   // CLEANUP
   useEffect(() => {
@@ -144,26 +165,33 @@ export default function Quiz() {
 
   // 💔 PERTE DE VIE
   const loseLife = async () => {
-    if (gameOver || isEnding.current) return;
+    if (gameOver || isEnding.current || answerLockRef.current) return;
+
+    clearTimeout(timerRef.current);
+    answerLockRef.current = true;
 
     await playSound("wrong");
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
     setCombo(1);
     setStreak(0);
+    setSelected(null);
 
     if (hearts <= 1) {
       setHearts(0);
       setGameOver(true);
+      answerLockRef.current = false;
     } else {
       setHearts((h) => h - 1);
-      setIndex((i) => i + 1);
-      setTime(15);
+      nextQuestion();
+      answerLockRef.current = false;
     }
   };
 
   // ➡️ NEXT
   const nextQuestion = () => {
+    clearTimeout(timerRef.current);
+
     if (index + 1 < questions.length) {
       setIndex((i) => i + 1);
       setSelected(null);
@@ -185,6 +213,8 @@ export default function Quiz() {
         history = [];
       }
 
+      if (!Array.isArray(history)) history = [];
+
       history.push({
         score: Number(money) || 0,
         date: Date.now(),
@@ -203,6 +233,8 @@ export default function Quiz() {
     if (isEnding.current) return;
     isEnding.current = true;
 
+    clearTimeout(timerRef.current);
+
     try {
       if (Math.random() < 0.4) interstitial.show();
     } catch {}
@@ -217,12 +249,14 @@ export default function Quiz() {
 
   // 🎯 ANSWER
   const handleAnswer = (option) => {
-    if (selected || isEnding.current) return;
+    if (selected || isEnding.current || answerLockRef.current) return;
 
     setSelected(option);
+    answerLockRef.current = true;
+    clearTimeout(timerRef.current);
 
     setTimeout(async () => {
-      if (option === current.answer) {
+      if (option === current?.answer) {
         await playSound("correct");
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
@@ -235,10 +269,12 @@ export default function Quiz() {
         if (newStreak >= 10) newCombo = 5;
 
         setCombo(newCombo);
-        setMoney((m) => m + (current.reward || 0) * newCombo);
+        setMoney((m) => m + (current?.reward || 0) * newCombo);
 
+        answerLockRef.current = false;
         nextQuestion();
       } else {
+        answerLockRef.current = false;
         loseLife();
       }
     }, 300);
@@ -246,6 +282,13 @@ export default function Quiz() {
 
   // 🔥 REVIVE FIX
   const revive = () => {
+    if (reviveUsedRef.current) return;
+    reviveUsedRef.current = true;
+
+    clearTimeout(timerRef.current);
+    isEnding.current = false;
+    answerLockRef.current = false;
+
     setGameOver(false);
     setHearts(3);
     setSelected(null);
@@ -266,6 +309,14 @@ export default function Quiz() {
 
   const danger = time <= 5;
 
+  if (!isReady) {
+    return (
+      <View style={styles.loading}>
+        <Text style={styles.loadingText}>Chargement...</Text>
+      </View>
+    );
+  }
+
   if (gameOver) {
     return (
       <View style={styles.overlay}>
@@ -273,9 +324,15 @@ export default function Quiz() {
           <Text style={styles.bigIcon}>💔</Text>
           <Text style={styles.title}>Plus de vies</Text>
 
-          <TouchableOpacity style={styles.btnGreen} onPress={revive}>
-            <Text style={styles.btnText}>Continuer</Text>
-          </TouchableOpacity>
+          {!reviveUsedRef.current ? (
+            <TouchableOpacity style={styles.btnGreen} onPress={revive}>
+              <Text style={styles.btnText}>Continuer</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.btnGreen, styles.btnDisabled]}>
+              <Text style={styles.btnText}>Reprise déjà utilisée</Text>
+            </View>
+          )}
 
           <TouchableOpacity style={styles.btnRed} onPress={endGame}>
             <Text style={styles.btnText}>Quitter</Text>
@@ -445,6 +502,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
+  btnDisabled: {
+    backgroundColor: "#4B5563",
+  },
+
   btnRed: {
     backgroundColor: "#EF4444",
     padding: 18,
@@ -455,6 +516,19 @@ const styles = StyleSheet.create({
 
   btnText: {
     color: "white",
+    fontWeight: "bold",
+  },
+
+  loading: {
+    flex: 1,
+    backgroundColor: "#0A0F2C",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  loadingText: {
+    color: "white",
+    fontSize: 18,
     fontWeight: "bold",
   },
 });
