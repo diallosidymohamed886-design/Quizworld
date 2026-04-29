@@ -8,6 +8,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// ================= UTILS =================
 const safeNumber = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -27,13 +28,14 @@ export default function Results() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  const money = Number(params.money) || 0;
+  // 🔒 SAFE MONEY
+  const money = safeNumber(params?.money);
 
   const [bestScore, setBestScore] = useState(0);
   const [gamesPlayed, setGamesPlayed] = useState(0);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState("...");
 
-  // 🔥 LOAD STATS SYNC AVEC LES 25 DERNIÈRES PARTIES
+  // 🔥 LOAD STATS
   useEffect(() => {
     const load = async () => {
       try {
@@ -51,13 +53,15 @@ export default function Results() {
         setBestScore(best);
       } catch (e) {
         console.log("RESULTS ERROR:", e);
+        setBestScore(0);
+        setGamesPlayed(0);
       }
     };
 
     load();
   }, []);
 
-  // 🧠 MESSAGE
+  // 🧠 MESSAGE SAFE
   useEffect(() => {
     if (money < 200) setMessage("😅 Continue !");
     else if (money < 500) setMessage("🔥 Bon !");
@@ -77,9 +81,10 @@ export default function Results() {
       <Text style={styles.stat}>🏆 Meilleur : {bestScore}</Text>
       <Text style={styles.stat}>🎮 Parties : {gamesPlayed}</Text>
 
+      {/* 🔥 FIX NAVIGATION */}
       <TouchableOpacity
         style={styles.button}
-        onPress={() => router.replace("/")}
+        onPress={() => router.push("/")}
       >
         <Text style={styles.buttonText}>REJOUER</Text>
       </TouchableOpacity>
@@ -94,6 +99,7 @@ export default function Results() {
   );
 }
 
+// ================= STYLES =================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
