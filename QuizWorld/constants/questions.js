@@ -7,7 +7,7 @@ export const QUESTIONS = [
 { question: "Quel est le plus grand désert ?", options: ["Sahara","Gobi","Arctique","Antarctique"], answer: "Antarctique", reward: 100 },
 
 { question: "Quelle planète est la plus proche du Soleil ?", options: ["Vénus","Mars","Mercure","Jupiter"], answer: "Mercure", reward: 100 },
-{ question: "Quel pays a la plus grande population ?", options: ["USA","Inde","Chine","Brésil"], answer: "Chine", reward: 100 },
+{ question: "Quel pays a la plus grande population ?", options: ["USA","Inde","Chine","Brésil"], answer: "Inde", reward: 100 },
 { question: "Quelle est la langue la plus parlée au monde ?", options: ["Anglais","Espagnol","Mandarin","Français"], answer: "Mandarin", reward: 100 },
 { question: "Quel animal est le plus rapide ?", options: ["Lion","Guépard","Tigre","Cheval"], answer: "Guépard", reward: 100 },
 { question: "Quelle est la capitale du Japon ?", options: ["Pékin","Tokyo","Séoul","Bangkok"], answer: "Tokyo", reward: 100 },
